@@ -31,6 +31,7 @@ import {
   $hiddenTreePanes,
   $narrowViewport,
   $newSessionTabAction,
+  $panesWithCloser,
   $treeDragging,
   activateTreePane,
   closeAllTreeTabs,
@@ -177,6 +178,7 @@ export function TreeGroup({
   const hiddenPanes = useStore($hiddenTreePanes)
   const narrow = useStore($narrowViewport)
   const newSessionTabAction = useStore($newSessionTabAction)
+  const panesWithCloser = useStore($panesWithCloser)
 
   const paneFor = (id: string) => panes.find(p => p.id === id)
 
@@ -347,7 +349,7 @@ export function TreeGroup({
               role="tablist"
             >
               {shown.map(paneId => {
-                const closeable = !paneChrome(paneFor(paneId)).uncloseable
+                const closeable = !paneChrome(paneFor(paneId)).uncloseable || panesWithCloser.has(paneId)
                 const title = paneFor(paneId)?.title ?? paneId
 
                 return (
@@ -414,7 +416,10 @@ export function TreeGroup({
               {shown.map(paneId => {
                 const isActive = paneId === activeId && !node.minimized
                 const chrome = paneChrome(paneFor(paneId))
-                const closeable = !chrome.uncloseable
+                // A pane whose store owns Close (the workspace: its tab empties
+                // to a fresh draft rather than leaving the tree) keeps the close
+                // gesture even though the pane itself is uncloseable.
+                const closeable = !chrome.uncloseable || panesWithCloser.has(paneId)
                 const title = paneFor(paneId)?.title ?? paneId
 
                 const tab = (
