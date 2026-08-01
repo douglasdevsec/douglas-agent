@@ -50,6 +50,159 @@ intérprete de Python, no lo toques.
 8. Si una decisión admite más de una opción razonable, se presentan las
    opciones con sus trade-offs. No se elige unilateralmente.
 
+## Configuración del entorno de desarrollo
+
+Diagnóstico (2026-08-01): `npm run dev` abría la ventana de Electron
+pero el backend nunca conectaba —
+`Timed out connecting to Douglas Agent backend after 15000ms`. Esto
+es lo que se confirmó, y lo que se descartó.
+
+### Qué se confirmó
+
+- **El backend SÍ arranca desde este checkout.** En modo dev
+  (`npm run dev`, sin empaquetar), `resolveHermesBackend()` en
+  [`main.ts`](../apps/desktop/electron/main.ts) prioriza el propio
+  checkout (`SOURCE_REPO_ROOT`, resuelto como dos niveles arriba de
+  `apps/desktop`) sobre la instalación activa en
+  `%LOCALAPPDATA%\hermes\hermes-agent`. No hace falta una instalación
+  aparte para desarrollar — el checkout ES el backend.
+- **El venv de este checkout (`.venv/`, no `venv/`) ya es funcional.**
+  `findPythonForRoot()` busca primero `.venv\Scripts\python.exe`, que
+  existe, es Python 3.13.5 (dentro del rango `>=3.11,<3.14` que exige
+  `pyproject.toml`), e importa `hermes_cli.main` sin error. Invocado
+  con el comando exacto que usa Electron
+  (`python -m hermes_cli.main serve --host 127.0.0.1 --port 0`),
+  imprime `HERMES_BACKEND_READY port=NNNN` en menos de 2 segundos —
+  el arranque en frío tiene hasta 90s de margen
+  (`DEFAULT_PORT_ANNOUNCE_TIMEOUT_MS` en
+  [`backend-ready.ts`](../apps/desktop/electron/backend-ready.ts)), muy
+  por encima de lo que tarda en la práctica.
+- **Falta real, confirmada:** `agent-client-protocol==0.9.0` (el
+  extra `acp` de `pyproject.toml`, incluido en `[all]`) NO está
+  instalado en `.venv`. El `pyvenv.cfg` del venv además revela que se
+  creó originalmente en otra ruta y se copió aquí — no vía
+  `uv sync`, así que probablemente le faltan más paquetes de `[all]`/
+  `[dev]` de los que parecen a simple vista (solo 112 paquetes
+  instalados).
+- **`HERMES_HOME` en esta máquina** ya está fijado (variable de
+  entorno de usuario) a `%LOCALAPPDATA%\hermes` — la instalación real
+  de producción, con config y sesiones reales. El backend de
+  desarrollo (aunque corre desde el checkout) lee/escribe esa MISMA
+  carpeta salvo que se le indique lo contrario. El venv de desarrollo
+  y el venv de producción (`%LOCALAPPDATA%\hermes\hermes-agent\venv`)
+  ya están completamente separados por ubicación — eso nunca fue el
+  riesgo. El riesgo real es el `HERMES_HOME` compartido (config/
+  sesiones), no el venv.
+- **El timeout de 15000ms reportado no es el mismo timeout que
+  `backend-ready.ts` espera (90s).** Es un `http.request` client-side
+  con su propio deadline de 15s, en un handler `hermes:api` — dispara
+  si algo llama a la API antes de que el backend termine su arranque
+  en frío. En el log también aparecieron 3 avisos de
+  `simple-git`/WSL (`Invalid value supplied for custom binary` —
+  WSL no está instalado en esta máquina) casi al mismo tiempo, desde
+  [`git-review-ops.ts`](../apps/desktop/electron/git-review-ops.ts) —
+  no relacionado con el backend Python, pero cada intento fallido de
+  spawn puede costar varios segundos y competir por el mismo arranque
+  en frío. **Hipótesis, no confirmada:** con el venv completo (extras
+  instalados, bytecode ya compilado de una corrida previa), el
+  arranque en frío debería caer muy por debajo de 15s y el timeout no
+  debería repetirse. Si persiste tras completar el venv, el problema
+  está en el lado Electron/IPC (una llamada a `hermes:api` que no
+  espera a que `ensureBackend()` resuelva), no en el entorno Python —
+  investigar aparte.
+
+### Instalar/completar el venv de desarrollo
+
+Usa el `uv` ya gestionado por la instalación real
+(`%LOCALAPPDATA%\hermes\bin\uv.exe`) — no hace falta instalar uv de
+nuevo. Desde la raíz del repo (`C:\proyectos\douglas-agent`):
+
+```powershell
+& "$env:LOCALAPPDATA\hermes\bin\uv.exe" sync --extra all --extra dev
+```
+
+- Reutiliza el `.venv/` que ya existe en el repo (uv lo detecta
+  automáticamente) — no crea nada en `%LOCALAPPDATA%\hermes`, no
+  toca la instalación de producción ni su propio venv.
+- `--extra all` cubre `acp` (agent-client-protocol), `cron`, `cli`,
+  `pty`, `mcp`, `homeassistant`, `sms`, `google`, `web`, `youtube` —
+  ver el bloque `all = [...]` en `pyproject.toml` para la lista
+  exacta y por qué cada uno está ahí.
+- `--extra dev` añade `pytest`, `ruff`, `ty`, `debugpy` — necesarios
+  para `tests-douglas/` y el resto de la suite Python.
+- Usa `uv.lock` (ya presente en el repo) para resolver versiones
+  exactas — reproducible, no una resolución nueva cada vez.
+
+**Verificar tras el sync:**
+
+```powershell
+.\.venv\Scripts\python.exe -c "import agent_client_protocol; print('acp OK')"
+.\.venv\Scripts\python.exe -c "import hermes_cli.main; print('import OK')"
+```
+
+**Verificar que el backend arranca de forma aislada** (antes de
+probar la app completa — así se sabe si un fallo es del entorno
+Python o de Electron):
+
+```powershell
+$env:HERMES_HOME = "$env:LOCALAPPDATA\hermes"
+.\.venv\Scripts\python.exe -m hermes_cli.main serve --host 127.0.0.1 --port 0
+```
+
+Debe imprimir `HERMES_BACKEND_READY port=NNNN` en pocos segundos.
+`Ctrl+C` para detenerlo — no deja nada corriendo en segundo plano.
+
+**Hito de terminado:** `npm run dev` desde `apps/desktop/` abre la
+ventana y el backend conecta sin el error de timeout. Si el venv ya
+está completo y el timeout persiste, el siguiente paso es
+instrumentar el handler `hermes:api` en `main.ts` para confirmar si
+espera a `ensureBackend()` antes de la primera llamada — no es un
+problema de dependencias Python.
+
+### Entorno de desarrollo aislado (opcional)
+
+Para no mezclar sesiones/config de desarrollo con la instalación
+real en `%LOCALAPPDATA%\hermes`, usa el sandbox ya existente en
+[`scripts/dev-sandbox.sh`](../scripts/dev-sandbox.sh) — separa
+`HERMES_HOME`, `HERMES_DESKTOP_USER_DATA_DIR` y el nombre de la app
+(evita el lock de instancia única con la app real), y solo copia
+(`cp -a`, nunca mueve) si se pide semilla:
+
+```bash
+# Sandbox desechable, vacío, se borra solo al salir:
+scripts/dev-sandbox.sh -- npm --prefix apps/desktop run dev
+
+# Sandbox desechable, sembrado con una copia de tu config real
+# (no toca %LOCALAPPDATA%\hermes en ningún momento):
+scripts/dev-sandbox.sh --from "$LOCALAPPDATA/hermes" -- npm --prefix apps/desktop run dev
+
+# Sandbox persistente entre reinicios (bajo .hermes-sandbox/ en el repo):
+scripts/dev-sandbox.sh --persistent --from "$LOCALAPPDATA/hermes" -- npm --prefix apps/desktop run dev
+```
+
+El venv (`.venv/` en la raíz del repo) no necesita aislarse aparte —
+ya vive dentro del checkout, separado por ubicación del venv de
+producción. Lo único que compartía estado por defecto era
+`HERMES_HOME`, y este sandbox lo resuelve sin duplicar la
+instalación de producción.
+
+### Si el backend no conecta
+
+1. Confirma que es un problema de Python, no de Electron: corre el
+   comando de "verificar que el backend arranca de forma aislada"
+   (arriba) directamente. Si imprime `HERMES_BACKEND_READY`, el
+   entorno Python está bien y el problema es del lado Electron/IPC.
+2. Si NO imprime esa línea, lee el traceback completo — casi siempre
+   es un `ModuleNotFoundError` (extra faltante — repite
+   `uv sync --extra all --extra dev`) o un error de import.
+3. Revisa `%LOCALAPPDATA%\hermes\desktop.log` (o el sandbox
+   equivalente) para el error real — el diálogo de la UI solo
+   muestra "Timed out", no la causa.
+4. Si el venv está completo y aislado confirma que arranca pero
+   `npm run dev` sigue con timeout, el problema es de temporización
+   en el lado Electron (ver "Hipótesis, no confirmada" arriba) — no
+   reinstales el entorno Python de nuevo, no lo va a arreglar.
+
 ## Procedimiento seguro para worktrees de verificación
 
 Incidente (2026-08-01): al comparar el comportamiento de un commit base
