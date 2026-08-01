@@ -415,3 +415,104 @@ descartó.
   algoritmo, no la app real arrancando en una máquina sin el valor de
   registro heredado.
 - **Commit:** *(pendiente)*
+
+## Reconciliación con upstream/main — native-token-store.ts (post-recuperación)
+
+- **Contexto:** al recuperar `main` desde el PR mergeado con snapshot
+  obsoleto (ver reporte de recuperación en el hilo de trabajo) y
+  rehacer `git merge upstream/main`, upstream trajo 4 commits que
+  tocan la misma zona que el blindaje de `safeStorage` de la Fase 1:
+  extraen la persistencia de tokens nativos a un archivo nuevo,
+  `apps/desktop/electron/native-token-store.ts`
+  (`persistNativeTokenSet` / `loadNativeTokenSet` +
+  `interface NativeTokenStoreIo`), y corrigen un bug real (#73271):
+  el parser de recarga usaba `parseTokenResponse` (formato
+  snake_case de las respuestas del gateway) sobre un blob que en
+  realidad es el `NativeTokenSet` normalizado en camelCase que este
+  mismo módulo escribió — la excepción resultante se tragaba en cada
+  arranque y se manifestaba como "se cierra la sesión en cada
+  reinicio". El archivo nuevo usa `parseStoredTokenSet` correctamente
+  y además redacta `user:password@` de la URL del gateway antes de
+  loguear errores de descifrado (`redactGatewayUrl`).
+- **Decisión: se queda la versión de upstream completa**, sin
+  reescribirla. Motivo: arquitectura genuinamente superior
+  (inyección de dependencias, testeable sin runtime de Electron),
+  corrige un bug real preexistente, y añade una protección de
+  seguridad (redacción de credenciales en logs) que no existía antes.
+  No había nada que "mi versión hiciera mejor" en este archivo
+  específico — no lo tocaba.
+- **El blindaje de `decryptDesktopSecret` (Fase 1) NO es redundante
+  — se mantiene intacto.** Motivo: `NativeTokenStoreIo.decrypt` es un
+  punto de inyección; en `main.ts`, `_nativeTokenStoreIo()` inyecta
+  exactamente `decrypt: decryptDesktopSecret` — es decir, el
+  try/catch, el degradado a `''` sin lanzar, el log vía
+  `rememberLog`, y el diálogo único
+  `notifyCredentialDecryptFailure()` con el mensaje explícito en
+  español siguen siendo el camino real de descifrado, ahora invocado
+  una capa más adentro (`loadNativeTokenSet` → `io.decrypt` →
+  `decryptDesktopSecret`) en vez de inline. Además,
+  `decryptDesktopSecret` sigue siendo usado directamente por los
+  otros 7 sitios de descifrado de `main.ts` (tokens de gateway
+  remoto, tokens SSH por perfil y globales) que
+  `native-token-store.ts` no toca. La versión de upstream, por sí
+  sola, solo loguea a `desktop.log` (`io.rememberLog`) cuando el
+  descifrado falla — no muestra ningún diálogo al usuario. Sin
+  `decryptDesktopSecret` inyectado como la implementación real,
+  upstream no cumpliría el requisito 3 de la Fase 1 (mensaje
+  explícito y visible al usuario). Confirmado con grep tras el
+  merge: los 7 call sites originales de `decryptDesktopSecret` siguen
+  presentes y sin cambios.
+- **Los 4 requisitos originales de blindaje de `safeStorage` (Fase
+  1) siguen cumplidos tras el merge combinado:**
+  1. Todo `safeStorage.decryptString()` sigue envuelto en try/catch
+     — vía `decryptDesktopSecret`, ahora también reenvuelto por el
+     try/catch propio de `loadNativeTokenSet`.
+  2. Degradado a "no autenticado" sin crash — ambas capas devuelven
+     `null`/`''` en vez de lanzar hacia arriba.
+  3. Mensaje explícito al usuario — sigue siendo
+     `notifyCredentialDecryptFailure()`, sin cambios.
+  4. Nunca se borra el archivo cifrado en un fallo de lectura — ni
+     `decryptDesktopSecret` ni `loadNativeTokenSet` tocan el archivo
+     en la rama de error; `loadNativeTokenSet` explícitamente deja
+     la entrada intacta "for retry".
+- **Conflicto de fusión real:** solo `_loadNativeTokens()` en
+  `main.ts` (mi lógica inline referenciaba una variable `secret` que
+  ya no existía en el contexto nuevo). Resuelto tomando la versión de
+  upstream completa, que delega en
+  `loadNativeTokenSet(baseUrl, _nativeTokenStoreIo())`.
+- **Icono de Windows (`80c86c494`): sí aplica.** El cambio en
+  `main.ts` (preferir `resources/icon.ico` / `assets/icon.ico` de
+  borde completo sobre el PNG con margen como ícono de la ventana en
+  Windows) fusionó sin conflicto y aplica tal cual a esta app.
+  Investigar esta zona además destapó un bug real y preexistente en
+  el propio `icon.ico` de Douglas Agent — generado con `.save()`
+  llamado sobre un frame de 16×16 ya reducido en vez de la imagen
+  maestra a resolución completa, produciendo silenciosamente un
+  archivo de un solo frame de 727 bytes desde el primer commit del
+  ícono (`30abfa66c`). Corregido y regenerado (`icon.ico` de
+  `apps/desktop/assets` y de
+  `apps/bootstrap-installer/src-tauri/icons`): 7 tamaños presentes,
+  96.1% de cobertura de píxel a 256px. Sin relación con el commit de
+  upstream, pero probablemente habría seguido sin detectarse sin este
+  merge.
+- **Riesgo de merge:** bajo — la superficie pública que el resto de
+  `main.ts` usa (`persistNativeTokenSet` / `loadNativeTokenSet` vía
+  `_nativeTokenStoreIo()`) no cambió de forma incompatible; los 8
+  call sites de `decryptDesktopSecret` fuera de este archivo no se
+  tocaron.
+- **Verificado:** `tsc --build tsconfig.electron.json --force` y
+  `tsc --build tsconfig.json --force` sin errores tras el merge;
+  `git status` limpio; `tests-douglas/` 18/18 (el traceback de
+  `PermissionError` visto tras la última prueba es un fallo de
+  limpieza de pytest en un symlink temporal de Windows, posterior a
+  que las 18 pruebas ya reportaran PASSED — no es un fallo de
+  prueba); `npm run build` completo sin errores; `npm run dev`
+  arranca, la ventana de Electron permanece abierta (5 procesos
+  estables, sin el crash "Desktop IPC bridge is unavailable" del
+  hallazgo de Fase 1) — el único error en el log es
+  `Timed out connecting to Douglas Agent backend after 15000ms`,
+  consistente con el entorno Python/venv no configurado en este
+  checkout de desarrollo (hallazgo ya documentado en la Fase 1, no
+  una regresión de este merge).
+- **Commit:** `afce28165` "Merge upstream/main into main (recovered
+  base)".
