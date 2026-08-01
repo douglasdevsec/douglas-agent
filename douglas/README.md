@@ -111,6 +111,39 @@ un rebrand) sin worktree, cuando alcanza:**
    `node_modules` y sobre ejecutar builds/tests dentro de un worktree
    compartiendo estado con el checkout principal.
 
+## Flujo de PRs: un PR mergeado no integra commits posteriores
+
+Incidente (2026-08-01): `origin/main` se mergeó vía PR #1 desde
+`feat/douglas-paso-3-branding` en `2026-07-31 09:07:58`, capturando
+fielmente el tip de la rama en ese instante (`46ca30469`, commiteado
+solo 27 minutos antes). El PR en sí no fue el problema. El problema es
+que el trabajo **siguió** en esa misma rama: 19 commits más a lo largo
+de las siguientes ~24 horas — prácticamente toda la Fase 1 del
+rebrand (migración de userData, blindaje de `safeStorage`, AUMID,
+etc.) — sin que nadie abriera un segundo PR ni volviera a mergear la
+rama hacia `main`. `main` quedó congelado en el punto del PR #1
+mientras la rama seguía avanzando.
+
+Lo que sí ocurrió, y generó una falsa sensación de sincronía: en algún
+punto se mergeó `main` **hacia** la rama (`9d08f357f`, "Merge branch
+'main' into feat/douglas-paso-3-branding"). Eso mantiene la rama al
+día con lo último de `main` — pero no mueve nada en la dirección
+contraria. Con la rama pareciendo "actualizada", fue fácil asumir que
+`main` también lo estaba, sin verificarlo.
+
+**Regla:** un PR mergeado integra exactamente los commits que existían
+en la rama en el momento del merge — nada de lo que se commitee
+después en esa misma rama llega a `main` hasta un PR (o merge)
+posterior. Un merge `main → rama` es unidireccional: sincroniza la
+rama con `main`, nunca al revés. Si el trabajo continúa en una rama
+cuyo PR ya se mergeó, esa nueva tanda necesita su propio PR antes de
+darse por integrada.
+
+**Antes de asumir que `main` tiene el trabajo de una rama:**
+`git merge-base --is-ancestor origin/<rama> origin/main` — exit code 0
+confirma que `main` contiene toda la rama; cualquier otro código
+significa que hay commits en la rama que `main` todavía no tiene.
+
 ## Limitaciones conocidas
 
 Cosas explícitamente pendientes — no silenciadas, documentadas aquí a propósito
