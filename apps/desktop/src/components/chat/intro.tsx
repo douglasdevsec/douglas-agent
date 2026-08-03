@@ -168,7 +168,7 @@ export function Intro({ personality, seed }: IntroProps) {
       data-slot="aui_intro"
     >
       <div className="w-full min-w-0">
-        <img alt="" aria-hidden className="mx-auto mb-3 h-24 w-auto object-contain" src={logoGreen} />
+        <img alt="" aria-hidden className="mx-auto mb-3 h-72 w-auto object-contain" src={logoGreen} />
 
         <p
           aria-label={WORDMARK}
