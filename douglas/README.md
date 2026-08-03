@@ -297,10 +297,108 @@ darse por integrada.
 confirma que `main` contiene toda la rama; cualquier otro código
 significa que hay commits en la rama que `main` todavía no tiene.
 
+## Proteger los assets de marca
+
+Incidente (antes de la Fase 2): `assets/banner.png` fue sustituido por el de
+Hermes en un `git merge upstream/main` — un merge normal, sin conflicto,
+porque git no tiene forma de saber que un binario "gana" siempre sobre otro.
+Va a repetirse en cada sincronización si no se blinda explícitamente.
+
+### El driver `keepours`
+
+`.gitattributes` (versionado, viaja con el repo) declara qué archivos usan
+un driver de merge personalizado:
+
+```gitattributes
+assets/banner.png                                        merge=keepours
+assets/logo.svg                                           merge=keepours
+assets/logo_green.png                                     merge=keepours
+apps/desktop/assets/icon.ico                               merge=keepours
+apps/desktop/assets/icon.icns                              merge=keepours
+apps/desktop/public/apple-touch-icon.png                   merge=keepours
+apps/desktop/src/assets/brand/logo_white.png                merge=keepours
+apps/desktop/src/assets/brand/logo_black.png                merge=keepours
+apps/bootstrap-installer/src/assets/brand/logo_white.png     merge=keepours
+apps/bootstrap-installer/src-tauri/icons/*                  merge=keepours
+```
+
+`logo_green.png` y `logo_black.png` están protegidos aunque hoy no los use
+ningún componente — proteger cuesta una línea, descubrir en tres meses que un
+merge los pisó sin que nadie lo notara cuesta mucho más. `apple-touch-icon.png`
+también entra aunque nada lo pise hoy en la práctica (no es un target típico
+de cambios de upstream), por la misma razón.
+
+**Pero el driver en sí no viaja con el repo.** `git config merge.keepours.driver
+true` vive en `.git/config`, que nunca se versiona. Sin ejecutarlo una vez por
+clon, `.gitattributes` no tiene efecto y git vuelve a su estrategia de merge
+por defecto — pisando los assets otra vez. Ejecutar una vez por clon:
+
+```powershell
+.\douglas\scripts\setup-git-config.ps1
+```
+o (Linux/macOS/Git Bash):
+```bash
+./douglas/scripts/setup-git-config.sh
+```
+
+Ambos hacen lo mismo: `git config merge.keepours.driver true`. `true` (el
+comando Unix, no el booleano) sale con código 0 sin tocar nada, así que git
+conserva la versión del árbol de trabajo ("ours") en cualquier conflicto
+sobre un archivo con `merge=keepours`.
+
+**No hay un script de setup único en este repo que ejecutar automáticamente**
+— `setup-hermes.sh`/`scripts/install.ps1` son instaladores de Hermes
+(upstream, para usuarios finales, no para desarrollo de este fork) y no
+tienen ninguna rama específica de Douglas Agent donde insertar esto sin
+mezclar responsabilidades. Se decidió un script propio en `douglas/scripts/`
+en vez de tocar `setup-hermes.sh`: mantiene el contrato de compatibilidad
+(código nuevo vive en `douglas/`) y evita un punto de conflicto de merge
+más — irónicamente, tocar un archivo compartido con upstream para resolver
+un problema de archivos compartidos con upstream. **Alternativa descartada:**
+añadirlo al `postinstall` de la raíz (`npm install` lo correría solo, cero
+pasos manuales) — más a prueba de olvidos, pero es tocar un script raíz
+compartido por cualquier futuro contribuidor no-Douglas; se dejó como mejora
+posible, no se implementó.
+
+### Verificación tras cada merge
+
+`git status --short` **no sirve** para verificar esto: el driver resuelve el
+binario durante el merge y el commit resultante ya incluye nuestra versión —
+el árbol de trabajo queda limpio aunque upstream sí haya intentado cambiar el
+archivo. Hace falta comparar contra lo que upstream trajo de verdad:
+
+```bash
+douglas/scripts/check-brand-assets.sh
+```
+
+Sin argumentos, toma automáticamente los dos padres de `HEAD` (debe correrse
+justo después de un `git merge upstream/main`, antes de cualquier otro commit).
+Compara el merge-base contra el lado de upstream y lista cualquier imagen bajo
+los directorios de marca que upstream haya tocado o añadido, marcando cada una
+como protegida (está en `.gitattributes`) o **NO PROTEGIDA** — este último caso
+es justo lo que el driver **no cubre**: si upstream **añade** un asset nuevo
+con marca Hermes en una de esas carpetas, entra sin oposición porque no hay
+regla que lo intercepte. Sale con código de salida distinto de cero si
+encuentra algo sin proteger, así que sirve como gate de CI si hace falta más
+adelante.
+
+Verificado en esta sesión: los 14 archivos protegidos difieren del blob
+correspondiente en `upstream/main` (`git hash-object` de cada uno, comparado
+uno a uno) — ninguno quedó accidentalmente en la versión de Hermes.
+
 ## Limitaciones conocidas
 
 Cosas explícitamente pendientes — no silenciadas, documentadas aquí a propósito
 para que ningún agente futuro las redescubra desde cero.
+
+### README localizados aún con marca Hermes
+
+`README.ur-pk.md` y `README.zh-CN.md` (raíz del repo) siguen referenciando
+`assets/banner.png` con contenido/contexto de Hermes — no se tocaron en esta
+pasada de branding. Mismo caso probable en `website/docusaurus.config.ts` (el
+sitio de documentación, si se sigue publicando). Pendiente: auditar qué README
+localizados y qué páginas del sitio muestran marca visible y decidir cuáles
+migrar a Douglas Agent — no es solo el banner, es todo el texto alrededor.
 
 ### Wake word sigue diciendo "hey hermes"
 
@@ -382,6 +480,21 @@ se quiere unificar.
   blanca, fondo transparente) sobre el mismo tile verde esmeralda que tenía
   el placeholder, importado localmente en cada app
   (`src/assets/brand/logo_white.png`).
+- **`logo_black.png` (`apps/desktop/src/assets/brand/logo_black.png`)
+  existe pero no lo importa ningún componente.** Investigado (Fase 2,
+  Bloque 0): no es un bug activo — `BrandMark` siempre pone `logo_white.png`
+  sobre un tile `bg-emerald-600` fijo (no cambia con el tema), así que el
+  blanco nunca queda directamente sobre un fondo claro/oscuro variable; no
+  hay ningún lugar hoy donde el contraste falle. Tampoco hace falta para un
+  ícono de bandeja (`Tray`) — no existe esa función en la app (confirmado,
+  cero `new Tray(` en `electron/main.ts`). Tampoco existe un blob par en
+  `assets/logo_green.png` u otro origen — parece haberse generado junto con
+  `logo_white.png` sin un punto de uso concreto todavía. **Propuesta, sin
+  implementar:** si en el futuro `BrandMark` se usa alguna vez sin el tile
+  esmeralda (marca "desnuda" sobre el fondo propio de la app, que sí cambia
+  con el tema), sería el momento de leer el tema activo y alternar
+  `logo_white.png`/`logo_black.png` igual que hace `text-emerald-600
+  dark:text-emerald-400` en el wordmark de `intro.tsx`.
 - **Ícono real de la app** (`apps/desktop/assets/icon.{ico,icns}`, usado en
   el `.exe`/`.app`/taskbar vía `electron-builder`) y los íconos del
   instalador Tauri (`apps/bootstrap-installer/src-tauri/icons/icon.{ico,icns}`):

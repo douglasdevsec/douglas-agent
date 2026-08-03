@@ -17,3 +17,21 @@ docker/entrypoint.sh text eol=lf
 *.tsx text eol=lf
 *.md  text eol=lf
 *.json text eol=lf
+
+# Douglas Agent: never accept upstream's binary for these brand assets on
+# `git merge upstream/main` — keep ours unconditionally. Requires a one-time
+# `git config merge.keepours.driver true` per clone (not versioned — see
+# douglas/scripts/setup-git-config.sh|ps1 and douglas/README.md, section
+# "Proteger los assets de marca"). Doesn't cover upstream ADDING a brand-ish
+# file that isn't listed here — run douglas/scripts/check-brand-assets.sh
+# after every merge to catch that.
+assets/banner.png                                    merge=keepours
+assets/logo.svg                                       merge=keepours
+assets/logo_green.png                                 merge=keepours
+apps/desktop/assets/icon.ico                           merge=keepours
+apps/desktop/assets/icon.icns                          merge=keepours
+apps/desktop/public/apple-touch-icon.png               merge=keepours
+apps/desktop/src/assets/brand/logo_white.png           merge=keepours
+apps/desktop/src/assets/brand/logo_black.png           merge=keepours
+apps/bootstrap-installer/src/assets/brand/logo_white.png merge=keepours
+apps/bootstrap-installer/src-tauri/icons/*             merge=keepours
