@@ -45,11 +45,26 @@ export function PremiumGate({ children, className }: PremiumGateProps) {
 
   return (
     <>
-      <button
+      {/* A <button> can't legally contain the buttons/links already inside
+          `children` (ListRow's Connect/Manage actions, the home teaser's
+          network icons) — React flags nested interactive controls and
+          browsers handle the click ambiguously. A div with a synthesized
+          button role covers the same keyboard/AT contract without nesting. */}
+      <div
         aria-label={t.social.premiumLocked}
-        className={cn('group relative block w-full rounded-md text-left', className)}
+        className={cn(
+          'group relative block w-full cursor-pointer rounded-md text-left',
+          className
+        )}
         onClick={() => setUpsellOpen(true)}
-        type="button"
+        onKeyDown={event => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            setUpsellOpen(true)
+          }
+        }}
+        role="button"
+        tabIndex={0}
       >
         <div aria-hidden className="pointer-events-none opacity-55 grayscale-[35%]">
           {children}
@@ -57,7 +72,7 @@ export function PremiumGate({ children, className }: PremiumGateProps) {
         <div className="absolute inset-0 flex items-center justify-center rounded-md bg-background/35 opacity-0 transition-opacity group-hover:opacity-100">
           <Lock className="size-4 text-muted-foreground" />
         </div>
-      </button>
+      </div>
 
       <Dialog onOpenChange={setUpsellOpen} open={upsellOpen}>
         <DialogContent onOpenAutoFocus={preventCloseButtonAutoFocus}>

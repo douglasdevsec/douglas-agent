@@ -742,3 +742,25 @@ valores por defecto propuestos, sin objeción.
   mock ni una pestaña de navegador suelta) confirmando el render
   correcto — logo + 6 iconos visibles bajo el texto de bienvenida.
 - **Commit:** *(pendiente)*
+
+## Fix — `<button>` anidado en `PremiumGate`
+
+Bug real, encontrado en vivo (no en tests): al probar la app corriendo,
+la consola de React marcaba `<button> cannot contain a nested <button>`.
+`PremiumGate` envolvía su contenido gateado en un `<button>` propio —
+pero ese contenido YA incluye botones interactivos en las dos superficies
+donde se usa: las acciones Connect/Manage/Reconnect de cada fila en
+`app/social/index.tsx`, y los 6 iconos clicables de
+`app/social/home-teaser.tsx`. HTML no permite botones anidados; React lo
+advierte y el comportamiento de click queda ambiguo entre navegadores.
+
+**Arreglo:** el wrapper exterior de `PremiumGate` pasó de `<button>` a
+`<div role="button" tabIndex={0}>` con `onClick`/`onKeyDown` (Enter/
+Espacio) propios — mismo contrato de teclado y lector de pantalla, sin
+anidar controles interactivos. El contenido interior sigue
+`pointer-events-none` cuando el usuario no es premium, así que el único
+punto de interacción real sigue siendo el wrapper.
+- **Verificado:** `tsc --build` y `eslint` limpios; confirmado en la
+  ventana de Electron real que el warning de consola desaparece tras el
+  fix (HMR).
+- **Commit:** *(pendiente)*
