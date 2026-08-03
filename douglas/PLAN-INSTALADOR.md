@@ -1,9 +1,15 @@
 # Plan — Rebrand del instalador multiplataforma (Windows/macOS/Linux)
 
-**Estado: plan únicamente. Nada de esto se ha ejecutado.** Investigado con
-dos pasadas de lectura completas sobre el código real (no supuestos) —
-ver hallazgos exactos abajo, con archivo:línea. Cuando digas que arranque,
-sigo el orden de la sección 7.
+**Estado: ejecutado.** Decisiones de la sección 5 confirmadas por el usuario
+(5.1 fork público `douglasdevsec/douglas-agent` vía GitHub raw hasta tener
+dominio propio, 5.2 `douglas-setup.exe`/`Douglas-Setup`, 5.3
+`com.douglasdevsec.douglas-agent.setup`, 5.4 `DouglasDevSec`, 5.5 synopsis
+reformulado). Fases TEXTO, CLAVE/RUTA y BUG de la sección 7 aplicadas —
+detalle completo, incluyendo un hallazgo no anticipado por este plan
+(`apps/desktop/electron/updater-process.ts` tenía el nombre del binario
+hardcodeado y no se habría actualizado solo con el cambio en `paths.rs`),
+en `douglas/CORE_PATCHES.md` ("Instalador — rebrand ejecutado"). Pendiente:
+compilación real y prueba en Windows (sección 8) — no hecha en esta sesión.
 
 Este documento cierra un pendiente ya anotado explícitamente en
 `douglas/README.md` ("Instalador NSIS / identidad `appId` sin resolver" —

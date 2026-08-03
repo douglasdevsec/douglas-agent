@@ -764,3 +764,165 @@ punto de interacción real sigue siendo el wrapper.
   ventana de Electron real que el warning de consola desaparece tras el
   fix (HMR).
 - **Commit:** *(pendiente)*
+
+## Instalador — rebrand ejecutado (Windows/macOS/Linux)
+
+Ejecuta `douglas/PLAN-INSTALADOR.md` tras confirmación del usuario de las
+5 decisiones de su sección 5: fork público `douglasdevsec/douglas-agent`
+(GitHub raw hasta tener dominio propio), `douglas-setup.exe`/
+`Douglas-Setup`, bundle id `com.douglasdevsec.douglas-agent.setup`,
+nombre legal `DouglasDevSec`, y synopsis Linux reformulado como
+atribución explícita.
+
+### Fase TEXTO — Tauri bootstrap-installer
+
+`tauri.conf.json` (productName, title, shortDescription/longDescription,
+publisher, copyright), todo el frontend (`index.html`, `routes/welcome.tsx`,
+`routes/success.tsx`, `routes/progress.tsx`, `store.ts`), `package.json`
+(`@hermes/bootstrap-installer` → `@douglas/bootstrap-installer`),
+`hermes-setup.manifest` (description). El comando visible en `success.tsx`
+pasó de `hermes desktop` a `douglas desktop` — confirmado que ambos son
+alias válidos del mismo entry point (`pyproject.toml` `[project.scripts]`),
+así que no rompe nada, solo cambia cuál se muestra.
+
+### Hallazgo no anticipado por el plan — `updater-process.ts`
+
+El plan clasificó el rename de `installer_dest()` en `paths.rs`
+(`hermes-setup.exe` → `douglas-setup.exe`) como RUTA de bajo riesgo. Un
+grep posterior a la primera pasada encontró que
+`apps/desktop/electron/updater-process.ts::resolveStagedUpdaterBinary()`
+tiene el nombre `'hermes-setup.exe'` **hardcodeado** como el candidato que
+busca para el hand-off de auto-actualización en Windows — si solo se
+renombraba `paths.rs`, el instalador habría escrito
+`douglas-setup.exe` pero el desktop habría seguido buscando
+`hermes-setup.exe`, rompiendo silenciosamente el flujo
+Desktop → hermes-setup --update → `hermes update` en cualquier instalación
+nueva. Corregido en el mismo pase, junto con su test
+(`updater-process.test.ts`, 4 literales). Mismo tratamiento aplicado a
+comentarios/strings relacionados en `bootstrap.rs`, `install_script.rs`
+(User-Agent HTTP), `main.ts`, `update-marker.ts`, `backend-probes.ts` —
+ninguno más tenía el nombre hardcodeado como lógica funcional, solo prosa.
+
+**Riesgo de merge:** bajo-medio en `paths.rs`/`updater-process.ts` — cambia
+un literal que dos módulos independientes (Rust + Electron) deben acordar;
+si upstream Hermes toca alguno de los dos lados de este contrato en
+paralelo, el conflicto es real y hay que revisarlo a mano, no solo
+resolver el diff mecánicamente.
+
+**No tocado a propósito:** decenas de menciones a "hermes-setup" en
+docstrings de `hermes_cli/` (`update_lock.py`, `_scan_venv_blockers.py`,
+`main.py`), tests Python (`test_update_lock.py`,
+`test_desktop_exe_integrity.py`, `test_install_commit_pin_rollback.py`,
+`test_windows_native_support.py`, `test_scan_venv_blockers.py`), y los
+scripts Docker/s6 (`01-hermes-setup` es un nombre de etapa de
+`cont-init.d` sin relación con el instalador Tauri). Son prosa/docstrings
+sin impacto funcional — quedan como deuda documental menor, no bloquean
+nada.
+
+### Más hallazgos no anticipados — mismo patrón, distintos consumidores
+
+Tras encontrar `updater-process.ts`, se hizo un grep dirigido de
+`NousResearch/hermes-agent` y `Hermes.app`/`Hermes.exe` dentro de
+`apps/bootstrap-installer/`, `apps/desktop/electron/`,
+`apps/desktop/scripts/` y `scripts/install.*` (el perímetro real del
+mecanismo de instalación/actualización, no todo el repo) para confirmar
+que no quedaba ningún otro consumidor con el mismo problema. Aparecieron
+cinco más, todos con el mismo patrón (un literal que un módulo distinto al
+que tocó el plan original tenía hardcodeado):
+
+- **`apps/bootstrap-installer/src-tauri/src/bootstrap.rs`
+  `resolve_hermes_desktop_exe()`** — el resolver real que el instalador
+  Tauri usa para encontrar el `.exe`/`.app` recién compilado del desktop
+  (mirror documentado de `cmd_gui` en Python). Buscaba `Hermes.exe` /
+  `Hermes.app/Contents/MacOS/Hermes` / `hermes` (minúscula, Linux) — los
+  tres desalineados con el `productName`/`executableName` reales
+  (`Douglas Agent`). El caso Linux es el más viejo: ya estaba en
+  minúscula "hermes" **antes** de este cambio, con `executableName` ya en
+  "Douglas Agent" desde Fase 1 — llevaba desalineado desde entonces, sin
+  relación con el trabajo de esta sesión. Corregido junto con su test
+  (`make_release_tree` en el mismo archivo).
+- **`apps/desktop/electron/bootstrap-runner.ts::downloadInstallScript()`**
+  — construye la URL `raw.githubusercontent.com/NousResearch/hermes-agent/
+  ${ref}/scripts/${scriptName}` que el desktop usa en runtime para bajar
+  `install.ps1`/`install.sh` (no solo los scripts en `scripts/` que ya se
+  habían corregido). Sin este fix, el desktop real habría seguido
+  descargando el instalador de Nous Research en cada actualización.
+- **`apps/bootstrap-installer/src-tauri/src/install_script.rs::download()`**
+  — el equivalente Rust exacto del punto anterior para el instalador
+  Tauri (tier 3, "Network", de su propia cadena de resolución
+  documentada al tope del archivo). Mismo bug, mismo fix.
+- **`apps/desktop/electron/update-remote.ts`** —
+  `OFFICIAL_REPO_HTTPS_URL`/`OFFICIAL_REPO_CANONICAL` definían qué remote
+  cuenta como "el repo oficial" para evitar un prompt de hardware FIDO2/
+  passkey en `git fetch` pasivos (ver comentario del archivo). Seguía
+  apuntando a `nousresearch/hermes-agent` — con eso, ningún usuario real
+  de Douglas Agent con `origin` SSH a `douglasdevsec/douglas-agent`
+  disparaba jamás la sustitución a HTTPS, dejando el bug FIDO2 que la
+  función existe para evitar sin corregir en la práctica. Corregido junto
+  con `update-remote.test.ts` (9 literales).
+- **`apps/desktop/electron/remote-lifecycle.ts`** — mensaje de error
+  mostrado al usuario cuando el agente remoto (SSH) no encuentra un
+  `hermes` instalado en el host remoto; sugería el one-liner de
+  `hermes-agent.nousresearch.com/install.sh`. Corregido al raw URL del
+  fork.
+
+**Deliberadamente no perseguido más allá de este perímetro:** un grep del
+mismo patrón sin acotar carpeta encontró ~95 archivos en todo el repo
+(`README.md`, `CONTRIBUTING.md`, `SECURITY.md`, plantillas de
+`.github/`, `hermes_cli/*.py`, `skills/`, `nix/hermes-agent.nix`,
+`apps/desktop/src/app/settings/about-settings.tsx` con el link "Ver en
+GitHub" de la pantalla Acerca de, etc.). Ninguno de esos es el mecanismo
+de instalación/actualización — son links de documentación, plantillas de
+issues, y superficies de UI general. Corregirlos es un rebrand de
+superficie mucho más amplio que "el plan del instalador" y no se tocó en
+este pase; queda anotado aquí como pendiente real (el link de
+"about-settings.tsx" en particular es visible al usuario y manda al repo
+equivocado) para un pase de rebrand separado.
+
+### Fase TEXTO — fuga real de metadatos del .exe
+
+`apps/desktop/scripts/set-exe-identity.mjs` (hook `afterPack`) escribía
+`ProductName`/`FileDescription`/`CompanyName`/`LegalCopyright` = Hermes /
+Nous Research directamente en los recursos PE — visible en clic derecho →
+Propiedades → Detalles pese a que `package.json.build.productName` ya
+decía Douglas Agent. Corregido, junto con el fallback de
+`before-pack.mjs`.
+
+### Fase CLAVE — identificadores
+
+`tauri.conf.json.identifier` → `com.douglasdevsec.douglas-agent.setup`,
+`Cargo.toml` `[[bin]] name` → `Douglas-Setup` (el nombre de paquete Rust
+`hermes-bootstrap` y el nombre de lib `hermes_bootstrap_lib` **no** se
+tocaron — identificador interno de Cargo, no visible al usuario, y
+renombrarlo exige tocar 5 archivos Rust más sin ningún beneficio de cara
+al usuario).
+
+### Fase CLAVE crítica — URLs de clonado
+
+`scripts/install.ps1` (`$RepoUrlSsh`/`$RepoUrlHttps`), `scripts/install.sh`
+(`REPO_URL_SSH`/`REPO_URL_HTTPS` + comentario de uso), `scripts/install.cmd`
+(banner + las 3 URLs de `raw.githubusercontent.com`/`hermes-agent.
+nousresearch.com`) → todas apuntan ahora a
+`douglasdevsec/douglas-agent` vía `raw.githubusercontent.com` (decisión
+5.1 — sin dominio propio todavía). **No tocado:** `$HermesHome`/
+`HERMES_HOME` (nombre de variable y default `%LOCALAPPDATA%\hermes` /
+`~/.hermes`) — regla 5.6 del plan, backward-compat obligatoria, explícita
+en `douglas/README.md`.
+
+### Fase BUG
+
+`install.ps1:$exeCandidates` buscaba literalmente `Hermes.exe` — ya no
+coincide con el build real (`Douglas Agent.exe`), así que el instalador no
+habría encontrado el ejecutable recién compilado. `test-desktop.mjs`
+(macOS/Windows/Linux) buscaba `Hermes.app`/`Hermes.exe`/`Hermes-*.dmg` —
+actualizado a los nombres reales (`Douglas Agent.app`,
+`Douglas Agent.exe`, `DouglasAgent-${version}-${os}-${arch}.dmg`, que
+coincide con `apps/desktop/package.json`'s `artifactName`).
+
+**No verificado:** nada de esto se compiló ni se corrió — pendiente la
+compilación real en Windows que pidió el usuario (sección 8 del plan).
+- **Verificado:** ningún test/build corrido en esta sesión — solo lectura
+  cruzada de cada literal contra su(s) consumidor(es) real(es) en el
+  código (grep de `hermes-setup`/`Hermes.exe`/`Hermes-Setup` en todo el
+  repo antes y después de cada cambio).
+- **Commit:** *(pendiente)*
