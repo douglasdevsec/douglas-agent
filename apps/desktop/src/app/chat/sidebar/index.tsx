@@ -104,7 +104,8 @@ import {
   MESSAGING_ROUTE,
   SIDEBAR_NAV_AREA,
   type SidebarNavContribution,
-  SKILLS_ROUTE
+  SKILLS_ROUTE,
+  SOCIAL_ROUTE
 } from '../../routes'
 import type { SidebarNavItem } from '../../types'
 
@@ -169,6 +170,13 @@ const SIDEBAR_NAV: SidebarNavItem[] = [
     icon: props => <Codicon name="files" {...props} />,
     route: ARTIFACTS_ROUTE,
     keybindActionId: 'nav.artifacts'
+  },
+  {
+    id: 'social',
+    label: 'Social',
+    icon: props => <Codicon name="megaphone" {...props} />,
+    route: SOCIAL_ROUTE,
+    keybindActionId: 'nav.social'
   }
 ]
 
@@ -1134,6 +1142,7 @@ export function ChatSidebar({
                   (item.id === 'skills' && currentView === 'skills') ||
                   (item.id === 'messaging' && currentView === 'messaging') ||
                   (item.id === 'artifacts' && currentView === 'artifacts') ||
+                  (item.id === 'social' && currentView === 'social') ||
                   // Contributed rows light up at their own route.
                   (Boolean(item.route) && pathname === item.route)
 

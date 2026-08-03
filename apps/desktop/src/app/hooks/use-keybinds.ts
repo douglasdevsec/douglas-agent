@@ -70,7 +70,8 @@ import {
   PROFILES_ROUTE,
   sessionRoute,
   SETTINGS_ROUTE,
-  SKILLS_ROUTE
+  SKILLS_ROUTE,
+  SOCIAL_ROUTE
 } from '../routes'
 
 export interface KeybindRuntimeDeps {
@@ -157,6 +158,7 @@ export function useKeybinds(deps: KeybindRuntimeDeps): void {
     'nav.skills': () => navigateToWorkspacePage(navigate, SKILLS_ROUTE),
     'nav.messaging': () => navigateToWorkspacePage(navigate, MESSAGING_ROUTE),
     'nav.artifacts': () => navigateToWorkspacePage(navigate, ARTIFACTS_ROUTE),
+    'nav.social': () => navigate(SOCIAL_ROUTE),
     'nav.cron': () => navigate(CRON_ROUTE),
     'nav.agents': () => navigate(AGENTS_ROUTE),
 

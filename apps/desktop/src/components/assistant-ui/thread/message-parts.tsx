@@ -6,6 +6,8 @@ import {
 } from '@assistant-ui/react'
 import { type ComponentProps, type FC, type ReactNode, useEffect, useRef, useState } from 'react'
 
+import { SocialApprovalCard } from '@/app/social/approval-card'
+import type { SocialApprovalPreview } from '@/app/social/fixtures'
 import { ClarifyTool } from '@/components/assistant-ui/clarify-tool'
 import { MarkdownText, MarkdownTextContent } from '@/components/assistant-ui/markdown-text'
 import { DelegateTool } from '@/components/assistant-ui/tool/delegate'
@@ -47,6 +49,51 @@ const DelegateToolPart: FC<ToolCallMessagePartProps> = props => {
   return <DelegateTool args={props.args} result={props.result} toolCallId={props.toolCallId} />
 }
 
+// Maps a real 'social_publish' tool call's args to the approval card's props.
+// No backend emits this tool yet (Etapa A is frontend-only — see
+// douglas/CORE_PATCHES.md) so this path is unexercised in production today;
+// it exists so Etapa C only has to define the args shape on the Python side,
+// not touch the renderer. Malformed/missing args fall through to the generic
+// ToolFallback rather than crashing the thread.
+function socialPublishPreviewFromArgs(args: unknown): SocialApprovalPreview | null {
+  if (!args || typeof args !== 'object') {
+    return null
+  }
+
+  const a = args as Record<string, unknown>
+
+  if (typeof a.copy !== 'string' || !Array.isArray(a.networks)) {
+    return null
+  }
+
+  return {
+    mediaUrl: typeof a.media_url === 'string' ? a.media_url : undefined,
+    mediaKind: a.media_kind === 'video' ? 'video' : a.media_kind === 'image' ? 'image' : undefined,
+    copy: a.copy,
+    hashtags: Array.isArray(a.hashtags) ? a.hashtags.filter((h): h is string => typeof h === 'string') : [],
+    networks: a.networks.filter((n): n is SocialApprovalPreview['networks'][number] => typeof n === 'string'),
+    scheduledFor: typeof a.scheduled_for === 'string' ? a.scheduled_for : undefined,
+    autoPublishDefault: a.auto_publish_default === true
+  }
+}
+
+const SocialPublishTool: FC<ToolCallMessagePartProps> = props => {
+  const preview = socialPublishPreviewFromArgs(props.args)
+
+  if (!preview) {
+    return <ToolFallback {...props} />
+  }
+
+  return (
+    <SocialApprovalCard
+      onApprove={() => {}}
+      onDiscard={() => {}}
+      onEdit={() => {}}
+      preview={preview}
+    />
+  )
+}
+
 const ChainToolFallback: FC<ToolCallMessagePartProps> = props => {
   // todo parts are hoisted to a dedicated panel above the message content.
   if (props.toolName === 'todo') {
@@ -70,6 +117,10 @@ const ChainToolFallback: FC<ToolCallMessagePartProps> = props => {
 
   if (props.toolName === 'clarify') {
     return <ClarifyTool {...props} />
+  }
+
+  if (props.toolName === 'social_publish') {
+    return <SocialPublishTool {...props} />
   }
 
   return <ToolFallback {...props} />

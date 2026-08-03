@@ -235,6 +235,7 @@ export const en: Translations = {
       'nav.artifacts': 'Open artifacts',
       'nav.cron': 'Open scheduled jobs',
       'nav.agents': 'Open agents',
+      'nav.social': 'Open social',
       'session.new': 'New session',
       'session.newTab': 'New session tab',
       'session.newWindow': 'New window',
@@ -1545,6 +1546,53 @@ export const en: Translations = {
     }
   },
 
+  social: {
+    panelTitle: 'Social accounts',
+    panelSubtitle: 'Connect the networks Douglas Agent can post to on your behalf',
+    networks: {
+      facebook: 'Facebook',
+      instagram: 'Instagram',
+      youtube: 'YouTube',
+      linkedin: 'LinkedIn',
+      tiktok: 'TikTok',
+      x: 'X'
+    },
+    statusDisconnected: 'Not connected',
+    statusConnected: 'Connected',
+    statusTokenExpiring: 'Token expiring soon',
+    statusError: 'Connection error',
+    connect: 'Connect',
+    reconnect: 'Reconnect',
+    manage: 'Manage',
+    premiumLocked: 'Premium feature — upgrade to connect social accounts',
+    wizardTitle: (network: string) => `Connect ${network}`,
+    wizardStepPending: 'Pending',
+    wizardStepCurrent: 'Current step',
+    wizardStepDone: 'Done',
+    wizardStepError: 'Something went wrong',
+    wizardValidate: 'Validate',
+    wizardValidating: 'Validating…',
+    wizardNext: 'Next',
+    wizardCancel: 'Cancel',
+    wizardDone: 'Connected',
+    wizardFieldRequired: 'This field is required',
+    approvalTitle: 'Ready to publish',
+    approvalDestination: 'Destination',
+    approvalScheduledFor: (when: string) => `Scheduled for ${when}`,
+    approvalPublishNow: 'Publish now',
+    approvalApprove: 'Approve',
+    approvalEdit: 'Edit',
+    approvalDiscard: 'Discard',
+    approvalAutoPublish: 'Publish automatically from now on',
+    approvalAutoPublishNote: 'The next piece may still need your approval the first time.',
+    approvalPreviewButton: 'Preview approval card',
+    premiumUpgradeTitle: 'Unlock the social layer',
+    premiumUpgradeBody:
+      'Connect Instagram, Facebook, TikTok, LinkedIn, YouTube, and X, and let Douglas Agent draft, schedule, and publish for you — with your approval on every post.',
+    premiumUpgradeCta: 'See plans',
+    premiumMaybeLater: 'Maybe later'
+  },
+
   profiles: {
     close: 'Close profiles',
     nameHint: 'Lowercase letters, digits, hyphens, and underscores. Must start with a letter or digit.',
@@ -1818,7 +1866,8 @@ export const en: Translations = {
       'new-session': 'New session',
       skills: 'Capabilities',
       messaging: 'Messaging',
-      artifacts: 'Artifacts'
+      artifacts: 'Artifacts',
+      social: 'Social'
     },
     searchAria: 'Search sessions',
     searchPlaceholder: 'Search sessions…',

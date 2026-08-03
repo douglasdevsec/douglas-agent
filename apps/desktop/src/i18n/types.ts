@@ -1292,6 +1292,45 @@ export interface Translations {
     deliverOptions: Record<string, string>
   }
 
+  social: {
+    panelTitle: string
+    panelSubtitle: string
+    networks: Record<string, string>
+    statusDisconnected: string
+    statusConnected: string
+    statusTokenExpiring: string
+    statusError: string
+    connect: string
+    reconnect: string
+    manage: string
+    premiumLocked: string
+    wizardTitle: (network: string) => string
+    wizardStepPending: string
+    wizardStepCurrent: string
+    wizardStepDone: string
+    wizardStepError: string
+    wizardValidate: string
+    wizardValidating: string
+    wizardNext: string
+    wizardCancel: string
+    wizardDone: string
+    wizardFieldRequired: string
+    approvalTitle: string
+    approvalDestination: string
+    approvalScheduledFor: (when: string) => string
+    approvalPublishNow: string
+    approvalApprove: string
+    approvalEdit: string
+    approvalDiscard: string
+    approvalAutoPublish: string
+    approvalAutoPublishNote: string
+    approvalPreviewButton: string
+    premiumUpgradeTitle: string
+    premiumUpgradeBody: string
+    premiumUpgradeCta: string
+    premiumMaybeLater: string
+  }
+
   profiles: {
     close: string
     nameHint: string

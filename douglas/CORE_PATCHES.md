@@ -516,3 +516,93 @@ descartó.
   una regresión de este merge).
 - **Commit:** `afce28165` "Merge upstream/main into main (recovered
   base)".
+
+## Capa social — Etapa A, Bloque 2 (frontend mockeado)
+
+Sin backend real: todo mockeado (`apps/desktop/src/app/social/fixtures.ts`).
+Cuatro piezas, todas nuevas, siguiendo patrones ya existentes en vez de
+inventar los propios (investigado primero, ver el punto de entrada del
+prompt Etapa A):
+
+- **2.1 Panel de configuración de redes** —
+  `apps/desktop/src/app/social/index.tsx` (`SocialView`). Usa el primitivo
+  `Panel`/`PanelHeader` (`app/overlays/panel.tsx`, el mismo que cron/
+  webhooks) y `ListRow` (`app/settings/primitives.tsx`) para las 6 filas de
+  red — es el shape existente más cercano a "fila con estado + botón de
+  acción", no uno nuevo.
+- **2.2 Asistente de conexión** —
+  `apps/desktop/src/app/social/connection-wizard.tsx`. Sin primitivo de
+  stepper reutilizable en el repo (confirmado); se construyó uno nuevo,
+  pero copiando el idioma estado→icono de `StageRow` en
+  `desktop-install-overlay.tsx`. Parametrizado por
+  `WizardStepDefinition[]` — los pasos reales de Meta quedan pendientes de
+  la experiencia real del usuario conectando a mano (ver
+  `PROMPT-CAPA-SOCIAL-ETAPA-A.md`, nota ⚠️ en A2). Validación 100%
+  simulada (`window.setTimeout`).
+- **2.3 Tarjeta de aprobación** —
+  `apps/desktop/src/app/social/approval-card.tsx`
+  (`SocialApprovalCard`) + registro en
+  `apps/desktop/src/components/assistant-ui/thread/message-parts.tsx`
+  (`ChainToolFallback`, nueva rama `toolName === 'social_publish'`,
+  siguiendo el patrón exacto de `components/assistant-ui/tool/approval.tsx`
+  para tarjetas interactivas embebidas en el hilo). **Sin backend, nadie
+  emite hoy un tool call `social_publish` real** — el registro en el
+  pipeline es real y queda listo para Etapa C, pero se ejercita en esta
+  etapa vía el botón "Vista previa" del panel (2.1), que monta el mismo
+  componente con datos mock dentro de un `Dialog`. Documentado en el propio
+  componente para que no se lea como "ya conectado a un tool real".
+- **2.4 Gating premium** —
+  `apps/desktop/src/components/premium-gate.tsx` (`PremiumGate`,
+  `isPremiumUser()`). Deliberadamente en `components/`, no en `app/social/`
+  — es el único punto de decisión "¿es premium?" para reutilizar en
+  cualquier otra superficie de pago futura, no solo redes sociales.
+  Confirmado que no existía nada parecido en el repo (ni lock+upsell modal,
+  ni gating por tier) antes de esto.
+
+**Núcleo tocado** (rastreado aquí por la regla de compatibilidad — nada
+renombrado, todo aditivo):
+- `apps/desktop/src/app/routes.ts` — nueva ruta `/social`
+  (`SOCIAL_ROUTE`), `'social'` añadido a `AppView`/`AppRouteId`/
+  `OVERLAY_VIEWS`.
+- `apps/desktop/src/app/types.ts` — `'social'` añadido a `SidebarNavId`.
+- `apps/desktop/src/app/chat/sidebar/index.tsx` — nueva entrada en
+  `SIDEBAR_NAV` (ícono `megaphone`, ruta `/social`) + condición de
+  `active`.
+- `apps/desktop/src/app/shell/hooks/use-overlay-routing.ts` — deriva
+  `socialOpen` igual que `webhooksOpen`/`cronOpen`.
+- `apps/desktop/src/app/contrib/wiring.tsx` — lazy import de `SocialView`
+  + render condicional en `socialOpen`.
+- `apps/desktop/src/app/hooks/use-keybinds.ts` y
+  `apps/desktop/src/lib/keybinds/actions.ts` — acción `nav.social`
+  registrada (sin atajo por defecto, igual que `nav.cron`/`nav.agents`).
+- `apps/desktop/src/i18n/types.ts` — nuevo bloque `social` en
+  `Translations`.
+- `apps/desktop/src/i18n/en.ts` — contenido real del namespace `social` +
+  `sidebar.nav.social` + `keybinds.actions['nav.social']`.
+- `apps/desktop/src/i18n/zh.ts` — **placeholder en inglés**, marcado
+  `TODO(i18n)` en el propio archivo. Es el único locale tipado
+  directamente contra `Translations` (los demás pasan por
+  `defineLocale()`, que hace merge con claves opcionales sobre `en` — ver
+  `i18n/define-locale.ts`), así que sin este bloque `tsc --build` fallaba
+  en `zh.ts` aunque `ar.ts`/`ja.ts`/`zh-hant.ts` no necesitaban tocarse.
+  Pendiente: pasada de traducción real antes de publicar la capa social en
+  chino simplificado.
+- `apps/desktop/src/components/assistant-ui/thread/message-parts.tsx` —
+  nueva rama en `ChainToolFallback` (ver 2.3 arriba).
+
+**Decisión sin implementar, reportada para revisión aparte (regla 0.4/R6,
+no elegido unilateralmente):** `apps/desktop/src/app/social/*/
+assets/brand/logo_black.png` (ver sección "Iconografía e ilustraciones"
+más arriba) — confirmado que no aplica aquí, `BrandMark` no lo necesita.
+Pendiente real distinto: el origen de la captura que motivó el botón bajo
+"Automation" resultó ser un mockup aparte, no código existente — se
+resolvió preguntando antes de construir (ver conversación), no se asumió.
+
+**Verificado:** `tsc --build` (electron + renderer) sin errores;
+`eslint` limpio tras `--fix` (solo orden de imports); `npm run build`
+completo; `tests-douglas/` 18/18. `npm run dev` no se relanzó para esta
+verificación — el puerto 5174 ya tenía una sesión activa con una conexión
+ESTABLISHED (aparente sesión de `dev-sandbox.sh` en curso) y no se tocó
+para no interrumpir trabajo en curso; verificación visual pendiente de
+confirmación directa.
+- **Commit:** *(pendiente)*

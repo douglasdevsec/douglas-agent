@@ -1739,6 +1739,59 @@ export const zh: Translations = {
     }
   },
 
+  // TODO(i18n): placeholder English strings — zh.ts is the one locale file
+  // typed directly against Translations (not routed through defineLocale's
+  // optional-override merge, see define-locale.ts), so it needs every key for
+  // `tsc --build` to pass even before a real translation exists. Needs a
+  // native speaker pass before shipping Simplified Chinese for the social
+  // layer.
+  social: {
+    panelTitle: 'Social accounts',
+    panelSubtitle: 'Connect the networks Douglas Agent can post to on your behalf',
+    networks: {
+      facebook: 'Facebook',
+      instagram: 'Instagram',
+      youtube: 'YouTube',
+      linkedin: 'LinkedIn',
+      tiktok: 'TikTok',
+      x: 'X'
+    },
+    statusDisconnected: 'Not connected',
+    statusConnected: 'Connected',
+    statusTokenExpiring: 'Token expiring soon',
+    statusError: 'Connection error',
+    connect: 'Connect',
+    reconnect: 'Reconnect',
+    manage: 'Manage',
+    premiumLocked: 'Premium feature — upgrade to connect social accounts',
+    wizardTitle: (network: string) => `Connect ${network}`,
+    wizardStepPending: 'Pending',
+    wizardStepCurrent: 'Current step',
+    wizardStepDone: 'Done',
+    wizardStepError: 'Something went wrong',
+    wizardValidate: 'Validate',
+    wizardValidating: 'Validating…',
+    wizardNext: 'Next',
+    wizardCancel: 'Cancel',
+    wizardDone: 'Connected',
+    wizardFieldRequired: 'This field is required',
+    approvalTitle: 'Ready to publish',
+    approvalDestination: 'Destination',
+    approvalScheduledFor: (when: string) => `Scheduled for ${when}`,
+    approvalPublishNow: 'Publish now',
+    approvalApprove: 'Approve',
+    approvalEdit: 'Edit',
+    approvalDiscard: 'Discard',
+    approvalAutoPublish: 'Publish automatically from now on',
+    approvalAutoPublishNote: 'The next piece may still need your approval the first time.',
+    approvalPreviewButton: 'Preview approval card',
+    premiumUpgradeTitle: 'Unlock the social layer',
+    premiumUpgradeBody:
+      'Connect Instagram, Facebook, TikTok, LinkedIn, YouTube, and X, and let Douglas Agent draft, schedule, and publish for you — with your approval on every post.',
+    premiumUpgradeCta: 'See plans',
+    premiumMaybeLater: 'Maybe later'
+  },
+
   profiles: {
     close: '关闭配置档案',
     nameHint: '小写字母、数字、连字符和下划线。必须以字母或数字开头。',
