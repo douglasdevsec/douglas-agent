@@ -33,5 +33,6 @@ apps/desktop/assets/icon.icns                          merge=keepours
 apps/desktop/public/apple-touch-icon.png               merge=keepours
 apps/desktop/src/assets/brand/logo_white.png           merge=keepours
 apps/desktop/src/assets/brand/logo_black.png           merge=keepours
+apps/desktop/src/assets/brand/logo_green.png           merge=keepours
 apps/bootstrap-installer/src/assets/brand/logo_white.png merge=keepours
 apps/bootstrap-installer/src-tauri/icons/*             merge=keepours

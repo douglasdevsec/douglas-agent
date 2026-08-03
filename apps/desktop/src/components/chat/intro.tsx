@@ -1,5 +1,7 @@
 import { type CSSProperties, useState } from 'react'
 
+import { SocialHomeTeaser } from '@/app/social/home-teaser'
+import logoGreen from '@/assets/brand/logo_green.png'
 import { capitalize, normalize } from '@/lib/text'
 
 import introCopyJsonl from './intro-copy.jsonl?raw'
@@ -166,6 +168,8 @@ export function Intro({ personality, seed }: IntroProps) {
       data-slot="aui_intro"
     >
       <div className="w-full min-w-0">
+        <img alt="" aria-hidden className="mx-auto mb-3 h-24 w-auto object-contain" src={logoGreen} />
+
         <p
           aria-label={WORDMARK}
           className="fit-text mx-auto mb-1 w-[calc(100%-1rem)] font-['Dimitri_Swank'] font-normal uppercase leading-[0.9] tracking-[0.08em] text-emerald-600 dark:text-emerald-400"
@@ -178,6 +182,10 @@ export function Intro({ personality, seed }: IntroProps) {
         </p>
 
         <p className="m-0 text-center leading-normal tracking-tight">{copy.body}</p>
+
+        <div className="pointer-events-auto mt-4 flex justify-center">
+          <SocialHomeTeaser />
+        </div>
       </div>
     </div>
   )

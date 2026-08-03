@@ -606,3 +606,34 @@ ESTABLISHED (aparente sesión de `dev-sandbox.sh` en curso) y no se tocó
 para no interrumpir trabajo en curso; verificación visual pendiente de
 confirmación directa.
 - **Commit:** *(pendiente)*
+
+## Capa social — teaser en el home (logo + iconos, post-Etapa A)
+
+Aprobado por el usuario tras revisar plan con 4 decisiones explícitas
+(ubicación, gating, superficies, frecuencia) — implementado con los
+valores por defecto propuestos, sin objeción.
+
+- **Logo** — `assets/logo_green.png` (raíz, ya protegido) copiado a
+  `apps/desktop/src/assets/brand/logo_green.png` (mismo patrón que
+  `logo_white.png`/`logo_black.png`), añadido a `.gitattributes` con
+  `merge=keepours`. Renderizado en
+  `apps/desktop/src/components/chat/intro.tsx`, arriba del wordmark.
+- **Iconos de redes** — `apps/desktop/src/app/social/home-teaser.tsx`
+  (`SocialHomeTeaser`), fila de 6 iconos reutilizando `NETWORK_ICONS`
+  (Bloque 2), envuelta en `PremiumGate` (Bloque 2.4) — mismo gate que el
+  panel `/social`, así que free/premium nunca queda inconsistente entre
+  las dos superficies. Cada icono navega a `SOCIAL_ROUTE`.
+- **Decisiones tomadas** (por defecto, sin objeción del usuario): fila
+  debajo del párrafo de bienvenida; gating premium igual que el panel;
+  solo en `<Intro>` del chat principal, no en el Kanban vacío (no se
+  tocó `plugins/kanban/board.tsx`); se muestra en cada sesión nueva
+  vacía, no solo la primera vez (sin bandera persistida).
+- **Detalle de implementación no obvio:** el contenedor raíz de
+  `<Intro>` es `pointer-events-none` (el resto del componente es
+  puramente decorativo) — el wrapper del teaser necesitó
+  `pointer-events-auto` explícito para que los iconos sean clicables.
+- **Verificado:** `tsc --build` y `eslint` limpios, `npm run build`
+  completo, captura real de la ventana de Electron en ejecución (no un
+  mock ni una pestaña de navegador suelta) confirmando el render
+  correcto — logo + 6 iconos visibles bajo el texto de bienvenida.
+- **Commit:** *(pendiente)*
