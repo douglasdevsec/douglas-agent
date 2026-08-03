@@ -122,15 +122,15 @@ test('beforePack on win32 preserves the previous build instead of wiping it', as
   try {
     const appOutDir = path.join(tempRoot, 'win-unpacked')
     fs.mkdirSync(appOutDir, { recursive: true })
-    fs.writeFileSync(path.join(appOutDir, 'Hermes.exe'), 'MZ-working', 'utf8')
+    fs.writeFileSync(path.join(appOutDir, 'Douglas Agent.exe'), 'MZ-working', 'utf8')
 
-    // No packager info in the context → default 'Hermes.exe' product name.
+    // No packager info in the context → default 'Douglas Agent.exe' product name.
     // node-pty staging is skipped because arch is not a number here.
     await beforePack({ appOutDir, electronPlatformName: 'win32' })
 
     assert.equal(fs.existsSync(appOutDir), false)
     assert.equal(
-      fs.readFileSync(path.join(`${appOutDir}.bak`, 'Hermes.exe'), 'utf8'),
+      fs.readFileSync(path.join(`${appOutDir}.bak`, 'Douglas Agent.exe'), 'utf8'),
       'MZ-working'
     )
   } finally {
@@ -143,7 +143,7 @@ test('beforePack on linux keeps the plain wipe (no .bak)', async () => {
   try {
     const appOutDir = path.join(tempRoot, 'linux-unpacked')
     fs.mkdirSync(appOutDir, { recursive: true })
-    fs.writeFileSync(path.join(appOutDir, 'Hermes.exe'), 'x', 'utf8')
+    fs.writeFileSync(path.join(appOutDir, 'Douglas Agent.exe'), 'x', 'utf8')
 
     await beforePack({ appOutDir, electronPlatformName: 'linux' })
 
