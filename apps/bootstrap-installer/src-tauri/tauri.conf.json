@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Hermes",
+  "productName": "Douglas Setup",
   "version": "0.0.1",
-  "identifier": "com.nousresearch.hermes.setup",
+  "identifier": "com.douglasdevsec.douglas-agent.setup",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://127.0.0.1:5175",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Hermes",
+        "title": "Douglas Setup",
         "width": 880,
         "height": 620,
         "minWidth": 720,
@@ -34,10 +34,10 @@
   "bundle": {
     "active": true,
     "category": "DeveloperTool",
-    "shortDescription": "Hermes",
-    "longDescription": "Installs Hermes Agent on your machine. Drives scripts/install.ps1 (Windows) and scripts/install.sh (macOS/Linux).",
-    "publisher": "Nous Research",
-    "copyright": "Copyright © 2026 Nous Research",
+    "shortDescription": "Douglas Setup",
+    "longDescription": "Installs Douglas Agent on your machine. Drives scripts/install.ps1 (Windows) and scripts/install.sh (macOS/Linux).",
+    "publisher": "DouglasDevSec",
+    "copyright": "Copyright © 2026 DouglasDevSec",
     "targets": [
       "app",
       "dmg",
