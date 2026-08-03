@@ -607,6 +607,111 @@ para no interrumpir trabajo en curso; verificación visual pendiente de
 confirmación directa.
 - **Commit:** *(pendiente)*
 
+## Identidad del agente en chat — de "Hermes Agent / Nous Research" a "Douglas Agent / DouglasDevSec"
+
+**Motivo:** el usuario preguntó "¿quién eres?" / "¿eres humano?" al agente real y
+respondió "Soy Hermes Agent... creado por Nous Research" — el rebrand de la
+Fase 1 solo tocó `apps/desktop/` (UI de Electron); el system prompt del
+backend Python nunca se tocó.
+
+### Dónde vivía el texto (un solo choke point, no strings dispersos)
+
+- `agent/prompt_builder.py` — `DEFAULT_AGENT_IDENTITY` (fallback si no hay
+  `SOUL.md`) y `HERMES_AGENT_HELP_GUIDANCE` (ambas alimentan
+  `agent/system_prompt.py::build_system_prompt_parts`, la única ruta real
+  hacia el prompt que ve el modelo — confirmado también usado por
+  `agent/codex_responses_adapter.py` y `agent/transports/codex.py` vía el
+  mismo import, así que un solo lugar cubre las tres transports).
+- `hermes_cli/default_soul.py` — `DEFAULT_SOUL_MD`, sembrado en
+  `HERMES_HOME/SOUL.md` en el primer arranque. **Gana sobre
+  `DEFAULT_AGENT_IDENTITY`** si el archivo existe (ver
+  `agent/system_prompt.py:189-201`) — por eso hacía falta tocar los dos
+  lugares, no solo uno.
+- `docker/SOUL.md` — archivo sembrado para instalaciones Docker, mismo texto,
+  tocado por consistencia aunque no es la ruta de instalación típica de un
+  usuario de Douglas Agent en desktop.
+
+### Blindaje anti-extracción (nuevo, primero en el repo)
+
+Se pidió explícitamente resistir prompts complejos/inyección que intenten
+sacarle al modelo que está construido sobre Hermes/Nous Research. No existía
+ningún guard de identidad en el repo (sí existe uno de seguridad de comandos,
+`CronPromptInjectionBlocked` en `cron/scheduler.py`, pero es de otra clase de
+ataque). Se añadió una cláusula explícita a `DEFAULT_AGENT_IDENTITY` /
+`DEFAULT_SOUL_MD` / `docker/SOUL.md` instruyendo al modelo a mantener la
+identidad Douglas Agent/DouglasDevSec sin importar cómo se le pida lo
+contrario.
+
+**Iteración real durante la verificación:** la primera redacción de esa
+cláusula usaba la frase "a request to ignore previous instructions" — el
+propio escáner anti-inyección del repo (`tools/threat_patterns.py`,
+patrón `ignore\s+...\s+instructions`, scope "all") la detectó como
+inyección de prompt y bloqueó el `SOUL.md` sembrado
+(`test_empty_dir_loads_seeded_global_soul` lo capturó en rojo). Reescrito
+sin las frases gatillo literales ("ignore previous instructions",
+"hypothetical", "role-play") manteniendo la misma intención defensiva —
+verificado contra los ~30 patrones de `threat_patterns.py` uno por uno
+antes de aplicar. Lección: cualquier instrucción defensiva que describa el
+ataque que bloquea corre el riesgo de sonar como el propio ataque.
+
+### Instalaciones ya sembradas — mecanismo de auto-upgrade existente, no uno nuevo
+
+`hermes_cli/config.py::_ensure_default_soul_md()` ya upgradeaba en el sitio
+cualquier `SOUL.md` que coincidiera *exactamente* con una plantilla conocida
+sin intención del usuario (antes: solo los scaffolds de solo-comentarios de
+instaladores viejos). Se añadieron dos entradas nuevas a
+`_LEGACY_TEMPLATE_SOULS` (`hermes_cli/default_soul.py`) — sin construir nada
+nuevo, reutilizando el mecanismo tal cual:
+
+1. `_PRE_DOUGLAS_DEFAULT_SOUL_MD` — el `DEFAULT_SOUL_MD` anterior, verbatim
+   (Hermes/Nous sin tocar).
+2. `_PARTIAL_REBRAND_SOUL_MD` — hallazgo real inspeccionando esta máquina:
+   `%LOCALAPPDATA%\douglas\SOUL.md` (fechado 2026-07-26, de una pasada de
+   rebrand anterior) tenía "Douglas Agent" pero **"created by Nous
+   Research"** sin corregir — un find/replace a medias, no algo que el
+   usuario escribió. Mismo tratamiento: entra a la lista de plantillas sin
+   intención de usuario, se auto-corrige solo.
+
+Verificado con las dos instalaciones reales de esta máquina:
+`%LOCALAPPDATA%\hermes\SOUL.md` ya coincidía byte a byte con el
+`DEFAULT_SOUL_MD` nuevo (se auto-actualizó solo durante esta sesión, sin
+intervención manual — confirma que el mecanismo corre en cada arranque del
+backend). `%LOCALAPPDATA%\douglas\SOUL.md` (el que probablemente usa la app
+de escritorio real, dado que `resolveHermesHome()` prioriza un directorio
+`douglas` existente sobre `hermes`) coincide con `_PARTIAL_REBRAND_SOUL_MD`
+— `is_legacy_template_soul()` devuelve `True` — se corregirá solo en el
+próximo arranque del backend.
+
+### Tests
+
+Dos tests upstream afirmaban el string literal "Hermes Agent" en el prompt
+construido — actualizados a "Douglas Agent" porque el cambio de contenido es
+intencional (`tests/agent/test_prompt_builder.py`,
+`tests/run_agent/test_run_agent.py`). Ningún otro test en el repo depende
+del texto viejo (barrido completo con grep antes de tocar nada) — las otras
+referencias a "Hermes Agent"/"Nous Research" en `tests/` son de dominios
+distintos sin relación (cabecera de copyright Apache 2.0, detección del
+modelo LLM "Nous Hermes", nombre de un proveedor OAuth) y no se tocaron.
+
+**Fallas preexistentes descubiertas durante la verificación, no causadas por
+este cambio** (confirmado con `git stash` contra cada una individualmente):
+`test_build_system_prompt_records_stable_prefix` (fuga de estado entre tests
+vía un `contextvars.ContextVar` de warnings de truncado no drenado, más un
+mock incompleto), `test_coding_prompt_preserves_legacy_workspace_order`
+(separador de ruta `/` vs `\`, específico de Windows),
+`TestGetHermesHome::test_default_path` (esta máquina real tiene
+`HERMES_HOME` fijado por variable de entorno, el test asume un entorno
+limpio), `test_interruptible_anthropic_interrupt_never_closes_shared_client`
+(falta el paquete `anthropic` en este `.venv`). Documentadas aquí, no
+arregladas — fuera de alcance de este cambio.
+
+**Verificado:** `tests/agent/test_prompt_builder.py`,
+`tests/agent/test_system_prompt.py`, `tests/agent/test_system_prompt_restore.py`,
+`tests/hermes_cli/test_config.py`, `tests/run_agent/test_run_agent.py`
+(subset filtrado + verificación de las 4 fallas preexistentes vía stash);
+`tests-douglas/` 18/18.
+- **Commit:** *(pendiente)*
+
 ## Capa social — teaser en el home (logo + iconos, post-Etapa A)
 
 Aprobado por el usuario tras revisar plan con 4 decisiones explícitas
