@@ -925,4 +925,7 @@ compilación real en Windows que pidió el usuario (sección 8 del plan).
   cruzada de cada literal contra su(s) consumidor(es) real(es) en el
   código (grep de `hermes-setup`/`Hermes.exe`/`Hermes-Setup` en todo el
   repo antes y después de cada cambio).
-- **Commit:** *(pendiente)*
+- **Commits:** `e252cbd2d` (Tauri UI/identifiers), `727c1a8d6` (rename
+  hermes-setup → douglas-setup), `472b11e27` (fuga de metadata del .exe),
+  `1029a6e06` (URLs de clonado/descarga), `002e0786e` (fix
+  `test-desktop.mjs`), `bfe359b00` (esta entrada de documentación).
