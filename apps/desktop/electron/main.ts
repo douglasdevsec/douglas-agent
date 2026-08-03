@@ -2928,8 +2928,8 @@ async function releaseBackendLock(updateRoot, tag) {
 //
 // The desktop is a pure consumer: it does NOT git pull / pip install / rebuild
 // itself (the old open-coded git dance lived here and drifted from
-// `hermes update`). Instead we spawn the staged hermes-setup binary (see
-// installer_dest() in paths.rs -- not yet renamed) with --update and quit,
+// `hermes update`). Instead we spawn the staged douglas-setup binary (see
+// installer_dest() in paths.rs) with --update and quit,
 // so it can run `hermes update` (which refuses while we hold the venv shim)
 // and rebuild the desktop with our exe already gone.
 //
@@ -2946,7 +2946,7 @@ async function applyUpdates(opts = {}) {
     const updater = resolveUpdaterBinary()
 
     if (!updater && !IS_WINDOWS) {
-      // macOS/Linux: never hand off, staged hermes-setup or not — the resolver
+      // macOS/Linux: never hand off, staged douglas-setup or not — the resolver
       // returns null there by policy. Unlike Windows (where a venv-shim file
       // lock forces the quit→hand-off→rebuild dance), there's no mandatory file
       // locking here, so the desktop can drive the whole update itself:
@@ -2959,7 +2959,7 @@ async function applyUpdates(opts = {}) {
     if (!updater) {
       // No staged updater binary — this is a CLI-installed user (they ran
       // `hermes desktop`, never the Tauri installer that self-copies
-      // hermes-setup.exe into HERMES_HOME). They DO have a working `hermes`
+      // douglas-setup.exe into HERMES_HOME). They DO have a working `hermes`
       // on PATH / in the venv, so the correct path is the one-liner in their
       // native medium. We show the EXACT command, branch-pinned to the
       // checkout they're on — bare `hermes update` defaults to main and would

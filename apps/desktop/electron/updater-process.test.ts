@@ -18,7 +18,7 @@ test('spawnUpdaterProcess hides the updater console and detaches the child on Wi
   }
 
   const result = spawnUpdaterProcess(
-    'hermes-setup.exe',
+    'douglas-setup.exe',
     ['--update', '--branch', 'main'],
     { cwd: 'C:\\Hermes', detached: true, stdio: 'ignore' },
     {
@@ -36,7 +36,7 @@ test('spawnUpdaterProcess hides the updater console and detaches the child on Wi
   assert.deepEqual(calls, [
     {
       args: ['--update', '--branch', 'main'],
-      command: 'hermes-setup.exe',
+      command: 'douglas-setup.exe',
       options: { cwd: 'C:\\Hermes', detached: true, stdio: 'ignore', windowsHide: true }
     }
   ])
@@ -46,7 +46,7 @@ test('spawnUpdaterProcess preserves updater options off Windows', () => {
   let capturedOptions: SpawnOptions | undefined
 
   spawnUpdaterProcess(
-    'hermes-setup',
+    'douglas-setup',
     ['--update'],
     { detached: true, stdio: 'ignore' },
     {
@@ -64,7 +64,7 @@ test('spawnUpdaterProcess preserves updater options off Windows', () => {
 
 test('resolveStagedUpdaterBinary hands Windows the staged installer it finds', () => {
   const home = 'C:\\Users\\hermes\\AppData\\Local\\hermes'
-  const staged = path.join(home, 'hermes-setup.exe')
+  const staged = path.join(home, 'douglas-setup.exe')
   const probed: string[] = []
 
   const resolved = resolveStagedUpdaterBinary(home, {
@@ -80,12 +80,12 @@ test('resolveStagedUpdaterBinary hands Windows the staged installer it finds', (
   assert.deepEqual(probed, [staged])
 })
 
-test('resolveStagedUpdaterBinary returns null off Windows even when hermes-setup is staged (#74836)', () => {
+test('resolveStagedUpdaterBinary returns null off Windows even when douglas-setup is staged (#74836)', () => {
   const home = '/Users/hermes/.hermes'
   let probes = 0
 
   const resolved = resolveStagedUpdaterBinary(home, {
-    // The installer stages hermes-setup on macOS/Linux too, so "it exists" is
+    // The installer stages douglas-setup on macOS/Linux too, so "it exists" is
     // the normal case — and precisely the one that must not win.
     fileExists: () => {
       probes += 1

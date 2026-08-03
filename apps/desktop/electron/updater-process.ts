@@ -26,7 +26,7 @@ function stagedFileExists(candidate: string): boolean {
  * Decide which staged installer binary — if any — may be handed an update.
  *
  * The Tauri installer self-copies into HERMES_HOME on *every* platform
- * (`hermes-setup.exe` on Windows, `hermes-setup` elsewhere — see
+ * (`douglas-setup.exe` on Windows, `douglas-setup` elsewhere — see
  * apps/bootstrap-installer `paths::installer_dest` and
  * `bootstrap::copy_self_to_hermes_home`), so finding that binary on macOS or
  * Linux is expected, not leftover junk.
@@ -56,7 +56,7 @@ export function resolveStagedUpdaterBinary(
   }
 
   const fileExists = deps.fileExists ?? stagedFileExists
-  const candidate = path.join(hermesHome, 'hermes-setup.exe')
+  const candidate = path.join(hermesHome, 'douglas-setup.exe')
 
   return fileExists(candidate) ? candidate : null
 }
