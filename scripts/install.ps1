@@ -1,11 +1,11 @@
 # ============================================================================
-# Hermes Agent Installer for Windows
+# Douglas Agent Installer for Windows
 # ============================================================================
 # Installation script for Windows (PowerShell).
 # Uses uv for fast Python provisioning and package management.
 #
 # Usage:
-#   iex (irm https://hermes-agent.nousresearch.com/install.ps1)
+#   iex (irm https://raw.githubusercontent.com/douglasdevsec/douglas-agent/main/scripts/install.ps1)
 #
 # Or download and run with options:
 #   .\install.ps1 -NoVenv -SkipSetup
@@ -142,8 +142,8 @@ foreach ($tmpVar in @('TEMP', 'TMP')) {
 # Configuration
 # ============================================================================
 
-$RepoUrlSsh = "git@github.com:NousResearch/hermes-agent.git"
-$RepoUrlHttps = "https://github.com/NousResearch/hermes-agent.git"
+$RepoUrlSsh = "git@github.com:douglasdevsec/douglas-agent.git"
+$RepoUrlHttps = "https://github.com/douglasdevsec/douglas-agent.git"
 $PythonVersion = "3.11"
 # Minor versions the installer accepts when the requested $PythonVersion isn't
 # available, in preference order.  uv discovers both uv-managed and system
@@ -213,9 +213,9 @@ function Get-WindowsArch {
 function Write-Banner {
     Write-Host ""
     Write-Host "+---------------------------------------------------------+" -ForegroundColor Magenta
-    Write-Host "|             * Hermes Agent Installer                    |" -ForegroundColor Magenta
+    Write-Host "|                * Douglas Agent Installer                |" -ForegroundColor Magenta
     Write-Host "+---------------------------------------------------------+" -ForegroundColor Magenta
-    Write-Host "|  An open source AI agent by Nous Research.              |" -ForegroundColor Magenta
+    Write-Host "|  An open source AI agent by DouglasDevSec.              |" -ForegroundColor Magenta
     Write-Host "+---------------------------------------------------------+" -ForegroundColor Magenta
     Write-Host ""
 }
@@ -1693,13 +1693,13 @@ function Install-Repository {
                 # for.  GitHub supports archive URLs for commits, tags, and
                 # branches; we honour Commit > Tag > Branch.
                 if ($Commit) {
-                    $zipUrl = "https://github.com/NousResearch/hermes-agent/archive/$Commit.zip"
+                    $zipUrl = "https://github.com/douglasdevsec/douglas-agent/archive/$Commit.zip"
                     $zipLabel = $Commit
                 } elseif ($Tag) {
-                    $zipUrl = "https://github.com/NousResearch/hermes-agent/archive/refs/tags/$Tag.zip"
+                    $zipUrl = "https://github.com/douglasdevsec/douglas-agent/archive/refs/tags/$Tag.zip"
                     $zipLabel = $Tag
                 } else {
-                    $zipUrl = "https://github.com/NousResearch/hermes-agent/archive/refs/heads/$Branch.zip"
+                    $zipUrl = "https://github.com/douglasdevsec/douglas-agent/archive/refs/heads/$Branch.zip"
                     $zipLabel = $Branch
                 }
                 $zipPath = "$env:TEMP\hermes-agent-$zipLabel.zip"
@@ -3113,8 +3113,8 @@ function Install-Desktop {
     # 3. Sanity-check the produced binary. Probe both arches so this works
     # on x64 and arm64 build machines.
     $exeCandidates = @(
-        "$desktopDir\release\win-unpacked\Hermes.exe",
-        "$desktopDir\release\win-arm64-unpacked\Hermes.exe"
+        "$desktopDir\release\win-unpacked\Douglas Agent.exe",
+        "$desktopDir\release\win-arm64-unpacked\Douglas Agent.exe"
     )
     $found = $false
     $desktopExe = $null
@@ -3127,10 +3127,10 @@ function Install-Desktop {
         }
     }
     if (-not $found) {
-        throw "Desktop build completed but no Hermes.exe was found under $desktopDir\release\*-unpacked\"
+        throw "Desktop build completed but no Douglas Agent.exe was found under $desktopDir\release\*-unpacked\"
     }
 
-    # 3b. The Hermes icon + identity are stamped onto Hermes.exe by the
+    # 3b. The Douglas Agent icon + identity are stamped onto Douglas Agent.exe by the
     #     electron-builder `afterPack` hook (apps/desktop/scripts/after-pack.mjs)
     #     during `npm run pack` above -- for every build, so the installer's
     #     --update rebuild stays branded too. No separate stamp step needed here.
@@ -3156,7 +3156,7 @@ function Install-Desktop {
     }
 
     # 4. Create Start Menu + Desktop shortcuts pointing DIRECTLY at the packed
-    #    Hermes.exe. We deliberately do NOT point them at `hermes desktop`: that
+    #    Douglas Agent.exe. We deliberately do NOT point them at `douglas desktop`: that
     #    command rebuilds (npm install + electron-builder) on every launch,
     #    which would cost minutes each time. The packed exe is the consumer --
     #    launching it directly is instant, and updates flow through the
@@ -3187,8 +3187,8 @@ function New-DesktopShortcuts {
         }
 
         $targets = @(
-            (Join-Path ([Environment]::GetFolderPath('Programs')) 'Hermes.lnk'),
-            (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Hermes.lnk')
+            (Join-Path ([Environment]::GetFolderPath('Programs')) 'Douglas Agent.lnk'),
+            (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Douglas Agent.lnk')
         )
 
         foreach ($lnkPath in $targets) {
@@ -3201,7 +3201,7 @@ function New-DesktopShortcuts {
                 $sc.TargetPath = $TargetExe
                 $sc.WorkingDirectory = $workDir
                 $sc.IconLocation = $iconLocation
-                $sc.Description = 'Hermes Agent'
+                $sc.Description = 'Douglas Agent'
                 $sc.Save()
                 Write-Success "Shortcut created: $lnkPath"
             } catch {
@@ -3212,7 +3212,7 @@ function New-DesktopShortcuts {
         # Bust the Windows shell icon cache so the desktop/Start-Menu shortcut
         # repaints with the (possibly newly-stamped) icon instead of a stale
         # cached bitmap. Critical on the --update path: the exe was re-stamped
-        # with the Hermes icon, but without this the shortcut can keep drawing
+        # with the Douglas Agent icon, but without this the shortcut can keep drawing
         # the old Electron icon until the user manually refreshes / reboots.
         # Best-effort and silent -- never fail the install over a cosmetic cache.
         try {
@@ -3882,7 +3882,7 @@ try {
     Write-Err "Installation failed: $_"
     Write-Host ""
     Write-Info "If the error is unclear, try downloading and running the script directly:"
-    Write-Host "  Invoke-WebRequest -Uri 'https://hermes-agent.nousresearch.com/install.ps1' -OutFile install.ps1" -ForegroundColor Yellow
+    Write-Host "  Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/douglasdevsec/douglas-agent/main/scripts/install.ps1' -OutFile install.ps1" -ForegroundColor Yellow
     Write-Host "  .\install.ps1" -ForegroundColor Yellow
     Write-Host ""
 }

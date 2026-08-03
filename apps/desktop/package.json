@@ -257,7 +257,7 @@
     "linux": {
       "category": "Development",
       "maintainer": "Douglas DevSec <dpdesign27@gmail.com>",
-      "synopsis": "Agente de creación y publicación de contenido, construido sobre Hermes Agent (MIT).",
+      "synopsis": "Agente de creación y publicación de contenido. Basado en Hermes Agent (MIT) — atribución completa en el LICENSE.",
       "target": [
         "AppImage",
         "deb",
