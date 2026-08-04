@@ -30,6 +30,7 @@ import type { ModelOptionProvider, OAuthProvider } from '@/types/hermes'
 
 import { DocsLink, FlowPanel, Status } from './flow'
 import {
+  DouglasProviderRow,
   FeaturedProviderRow,
   FireworksProviderRow,
   OpenRouterProviderRow,
@@ -38,6 +39,7 @@ import {
 } from './providers'
 
 export {
+  DouglasProviderRow,
   FeaturedProviderRow,
   FireworksProviderRow,
   KeyProviderRow,
@@ -427,6 +429,9 @@ export function Picker({ ctx }: { ctx: OnboardingContext }) {
   // Which key-form option to preselect when we flip to 'apikey' mode. The
   // OpenRouter row selects its key; the generic link lands on the first option.
   const [apiKeyInitialEnv, setApiKeyInitialEnv] = useState<string | undefined>(undefined)
+  // Douglas's own portal isn't live yet — clicking its row just expands an
+  // explanatory note instead of a real OAuth hand-off. See DouglasProviderRow.
+  const [showDouglasComingSoon, setShowDouglasComingSoon] = useState(false)
 
   const openKeyForm = (envKey?: string) => {
     setApiKeyInitialEnv(envKey)
@@ -476,6 +481,13 @@ export function Picker({ ctx }: { ctx: OnboardingContext }) {
     <div className="grid gap-2">
       <div className="grid max-h-[60dvh] gap-2 overflow-y-auto p-1">
         {featured ? <FeaturedProviderRow onSelect={select} provider={featured} /> : null}
+        <DouglasProviderRow onClick={() => setShowDouglasComingSoon(v => !v)} />
+        {showDouglasComingSoon ? (
+          <div className="rounded-2xl border border-(--ui-stroke-tertiary) bg-(--ui-bg-tertiary)/40 px-4 py-3 text-sm text-muted-foreground">
+            Douglas Agent&rsquo;s own model portal isn&rsquo;t live yet — this row previews how it
+            will look once it ships. Nous Portal stays fully functional in the meantime.
+          </div>
+        ) : null}
         {/* Slot #2 — always visible, matching CANONICAL_PROVIDERS (Nous → Fireworks). */}
         <FireworksProviderRow onClick={() => openKeyForm('FIREWORKS_API_KEY')} />
         {showRest ? (

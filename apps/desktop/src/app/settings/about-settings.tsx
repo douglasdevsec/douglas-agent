@@ -21,7 +21,7 @@ import {
 import { ListRow, SectionHeading, SettingsContent } from './primitives'
 import { UninstallSection } from './uninstall-section'
 
-const RELEASE_NOTES_URL = 'https://github.com/NousResearch/hermes-agent/releases'
+const RELEASE_NOTES_URL = 'https://github.com/douglasdevsec/douglas-agent/releases'
 const HERMES_REPO_URL = 'https://github.com/NousResearch/hermes-agent'
 
 function relativeTime(ms: number | undefined, a: Translations['settings']['about']) {
@@ -177,10 +177,10 @@ export function AboutSettings() {
           title={a.automaticUpdates}
         />
 
-        <div className="mt-6 rounded-xl border border-border/70 bg-muted/20 px-4 py-3 text-center text-xs text-muted-foreground">
-          <p>{a.attribution}</p>
+        <div className="mt-6 text-center text-[0.6875rem] leading-5 text-muted-foreground/50">
+          <span>{a.attribution}</span>{' '}
           <a
-            className="mt-1 inline-flex items-center gap-1 text-primary hover:underline"
+            className="hover:text-muted-foreground hover:underline"
             href={HERMES_REPO_URL}
             onClick={event => {
               event.preventDefault()
@@ -190,7 +190,6 @@ export function AboutSettings() {
             target="_blank"
           >
             {a.attributionLink}
-            <ExternalLink className="size-3" />
           </a>
         </div>
 

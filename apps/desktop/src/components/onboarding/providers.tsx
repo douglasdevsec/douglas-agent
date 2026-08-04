@@ -62,6 +62,37 @@ export function FeaturedProviderRow({
   )
 }
 
+/**
+ * Placeholder for Douglas Agent's own model-subscription portal, mirroring
+ * Nous Portal's featured-row shape (icon + title + badge + pitch + chevron).
+ * Not backed by a real provider yet — no web presence, not a model reseller
+ * yet — so this simulates the row/flow shape (click → explanatory note in
+ * the picker) instead of a real OAuth hand-off. Nous Portal stays as the
+ * working featured provider; this is additive, not a replacement.
+ */
+export function DouglasProviderRow({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      className="group relative flex w-full items-center justify-between gap-4 rounded-[8px] bg-(--ui-control-hover-background) px-3 py-2.5 text-left transition-colors hover:bg-(--ui-control-hover-background)/70"
+      onClick={onClick}
+      type="button"
+    >
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-[length:var(--conversation-text-font-size)] font-semibold">Douglas</span>
+          <span className="inline-flex items-center gap-1.5 bg-muted px-2 py-0.5 text-[0.64rem] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Coming soon
+          </span>
+        </div>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          Our own subscription portal — not live yet.
+        </p>
+      </div>
+      <ChevronRight className="size-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5" />
+    </button>
+  )
+}
+
 function ConnectedTag() {
   const { t } = useI18n()
 
