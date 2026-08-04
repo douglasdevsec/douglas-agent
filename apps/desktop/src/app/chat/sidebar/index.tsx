@@ -1093,7 +1093,29 @@ export function ChatSidebar({
     }
   }, [activeRepoTrees, workspaceParentOrderIds, workspaceOrderIds])
 
-  const showSessionSkeletons = sessionsLoading && sortedSessions.length === 0
+  // $sessionsLoading defaults to true (store/session.ts) so the very first
+  // render already thinks it's loading. On a fresh install with zero
+  // sessions the fetch resolves near-instantly, so without a delay the
+  // Pinned/Sessions skeleton sections flash on screen for a single frame
+  // before collapsing to the empty state — a visible flicker, not a real
+  // loading state. Only start showing the skeleton after a short delay, so
+  // fast resolves (including the empty-fresh-install case) never render it;
+  // a genuinely slow load still shows it, just 120ms later than before.
+  const [skeletonVisible, setSkeletonVisible] = useState(false)
+
+  useEffect(() => {
+    if (!sessionsLoading) {
+      setSkeletonVisible(false)
+
+      return
+    }
+
+    const id = window.setTimeout(() => setSkeletonVisible(true), 120)
+
+    return () => window.clearTimeout(id)
+  }, [sessionsLoading])
+
+  const showSessionSkeletons = skeletonVisible && sortedSessions.length === 0
 
   const showSessionSections = showSessionSkeletons || sortedSessions.length > 0 || projectModel.length > 0
 
