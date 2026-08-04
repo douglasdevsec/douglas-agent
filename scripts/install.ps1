@@ -29,8 +29,25 @@ param(
     # existing tree pass -ForceCommit.
     [switch]$ForceCommit,
     [string]$Tag = "",
-    [string]$HermesHome = $(if ($env:HERMES_HOME) { $env:HERMES_HOME } else { "$env:LOCALAPPDATA\hermes" }),
-    [string]$InstallDir = $(if ($env:HERMES_HOME) { "$env:HERMES_HOME\hermes-agent" } else { "$env:LOCALAPPDATA\hermes\hermes-agent" }),
+    # Douglas/Hermes compatibility chain (see douglas/README.md, "Cadena
+    # canonica de resolucion Douglas/Hermes"): DOUGLAS_HOME > HERMES_HOME >
+    # an existing %LOCALAPPDATA%\douglas > an existing %LOCALAPPDATA%\hermes
+    # > default to douglas for a brand-new install. Mirrors
+    # hermes_bootstrap.py::_douglas_home_candidates() (Python),
+    # apps\desktop\electron\main.ts::resolveHermesHome() (Electron), and
+    # apps\bootstrap-installer\src-tauri\src\paths.rs::hermes_home() (Tauri)
+    # — this script is the 4th implementation of that same chain and, until
+    # now, the only one that didn't actually implement it (it just checked
+    # $env:HERMES_HOME and fell back straight to %LOCALAPPDATA%\hermes,
+    # ignoring an already-installed douglas home entirely).
+    [string]$HermesHome = $(
+        if ($env:DOUGLAS_HOME) { $env:DOUGLAS_HOME }
+        elseif ($env:HERMES_HOME) { $env:HERMES_HOME }
+        elseif (Test-Path "$env:LOCALAPPDATA\douglas") { "$env:LOCALAPPDATA\douglas" }
+        elseif (Test-Path "$env:LOCALAPPDATA\hermes") { "$env:LOCALAPPDATA\hermes" }
+        else { "$env:LOCALAPPDATA\douglas" }
+    ),
+    [string]$InstallDir = "$HermesHome\hermes-agent",
 
     # --- Stage protocol (additive; default invocation behaves as before) ----
     # See the "Stage protocol" section near the bottom of the file for the

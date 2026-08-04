@@ -45,7 +45,23 @@ BOLD='\033[1m'
 # Configuration
 REPO_URL_SSH="git@github.com:douglasdevsec/douglas-agent.git"
 REPO_URL_HTTPS="https://github.com/douglasdevsec/douglas-agent.git"
-HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
+# Douglas/Hermes compatibility chain (see douglas/README.md, "Cadena
+# canonica de resolucion Douglas/Hermes"): DOUGLAS_HOME > HERMES_HOME > an
+# existing ~/.douglas > an existing ~/.hermes > default to ~/.douglas for a
+# brand-new install. Mirrors hermes_bootstrap.py, main.ts's
+# resolveHermesHome(), and paths.rs's hermes_home() — install.ps1 carries
+# the identical chain (see its param() block for $HermesHome).
+if [ -n "${DOUGLAS_HOME:-}" ]; then
+    HERMES_HOME="$DOUGLAS_HOME"
+elif [ -n "${HERMES_HOME:-}" ]; then
+    HERMES_HOME="$HERMES_HOME"
+elif [ -d "$HOME/.douglas" ]; then
+    HERMES_HOME="$HOME/.douglas"
+elif [ -d "$HOME/.hermes" ]; then
+    HERMES_HOME="$HOME/.hermes"
+else
+    HERMES_HOME="$HOME/.douglas"
+fi
 # INSTALL_DIR is resolved AFTER arg parsing and OS detection so we can pick an
 # FHS-style layout for root installs.  Track whether the user gave us an
 # explicit directory — if so we never override it.
