@@ -53,36 +53,40 @@
 }
 
 /*
- * Dark appearance — Nous dark seeds.
+ * Dark appearance — Douglas Agent green seeds.
  *
  * The imported desktop :root.dark only flips the per-mode mix knobs + neutral
  * chrome; the seed COLORS are normally painted at runtime by the desktop's
- * applyTheme(). The installer has no theme runtime, so we mirror them here from
- * apps/desktop/src/themes/presets.ts (nousTheme.darkColors). The whole
- * --ui-* / --dt-* chain in the imported stylesheet derives from these seeds, so
- * flipping them is enough — we only additionally override the few tokens
- * applyTheme() sets inline that DON'T derive from a seed (primary-foreground on
- * the cream accent, destructive). Unlayered on purpose so it wins over the
- * imported @layer base :root light seeds. Keep in sync with nousTheme.darkColors
- * if that palette is retuned.
+ * applyTheme(). The installer has no theme runtime, so we paint them here
+ * ourselves. The whole --ui-* / --dt-* chain in the imported stylesheet
+ * derives from these seeds, so flipping them is enough — we only additionally
+ * override the few tokens applyTheme() sets inline that DON'T derive from a
+ * seed (primary-foreground on the white accent, destructive). Unlayered on
+ * purpose so it wins over the imported @layer base :root light seeds.
+ *
+ * Was the Nous dark blue palette (mirrored from nousTheme.darkColors in
+ * apps/desktop/src/themes/presets.ts); recolored to an emerald green scale so
+ * the installer matches the wordmark accent apps/desktop's chat intro already
+ * uses (text-emerald-600/dark:text-emerald-400 in components/chat/intro.tsx),
+ * at the same relative depths as the old blue values.
  */
 :root.dark {
   color-scheme: dark;
 
-  --theme-foreground: #ffe6cb;
-  --theme-primary: #ffe6cb;
-  --theme-secondary: #1b45a4;
-  --theme-accent-soft: #1540b1;
-  --theme-midground: #0053fd;
-  --theme-warm: #ffe6cb;
-  --theme-background-seed: #0d2f86;
-  --theme-sidebar-seed: #09286f;
-  --theme-card-seed: #12378f;
-  --theme-elevated-seed: #123a96;
-  --theme-bubble-seed: #143b91;
+  --theme-foreground: #ffffff;
+  --theme-primary: #ffffff;
+  --theme-secondary: #047857;
+  --theme-accent-soft: #059669;
+  --theme-midground: #10b981;
+  --theme-warm: #ffffff;
+  --theme-background-seed: #052e21;
+  --theme-sidebar-seed: #021a13;
+  --theme-card-seed: #064e3b;
+  --theme-elevated-seed: #065f46;
+  --theme-bubble-seed: #065f46;
 
-  /* Non-derived shadcn tokens applyTheme() paints inline (Nous dark values). */
-  --dt-primary-foreground: #0d2f86;
+  /* Non-derived shadcn tokens applyTheme() paints inline (Douglas dark values). */
+  --dt-primary-foreground: #052e21;
   --dt-destructive: #c0473a;
   --dt-destructive-foreground: #fef2f2;
 }

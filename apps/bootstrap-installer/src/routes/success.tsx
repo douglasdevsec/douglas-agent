@@ -5,10 +5,12 @@ import { type CSSProperties } from 'react'
 import { HackeryButton } from '../components/hackery-button'
 import { launchHermesDesktop } from '../store'
 
+import logoWhite from '../assets/brand/logo_white.png'
+
 /*
- * Success screen. DOUGLAS AGENT wordmark stays as the visual anchor
- * (same Collapse Bold treatment as Welcome + the desktop chat intro),
- * with a status line below.
+ * Success screen. Same top-pinned logo + pushed-down hero layout as Welcome.
+ * DOUGLAS AGENT wordmark stays as the visual anchor (same Dimitri Swank
+ * treatment as Welcome + the desktop chat intro), with a status line below.
  *
  * Launching the desktop can fail (e.g. Stage-Desktop was skipped and
  * Douglas Agent.exe doesn't exist). We catch the Tauri error and surface it
@@ -35,46 +37,50 @@ export default function Success() {
   }
 
   return (
-    <div className="hermes-fade-in flex h-full flex-col items-center justify-center gap-8 px-12 py-10">
-      <div className="w-full max-w-2xl min-w-0 text-center">
-        <p
-          className="fit-text mx-auto mb-4 w-full font-['Collapse'] font-bold uppercase leading-[0.9] tracking-[0.08em] text-midground mix-blend-plus-lighter dark:text-foreground/90"
-          style={
-            {
-              '--fit-text-line-height': '0.9',
-              '--fit-text-max': '5rem',
-              '--fit-text-min': '2.25rem'
-            } as CSSProperties
-          }
-        >
-          <span>
-            <span>Douglas Agent is ready</span>
-          </span>
-          <span aria-hidden="true">Douglas Agent is ready</span>
-        </p>
+    <div className="hermes-fade-in flex h-full flex-col items-center px-12 pt-12 pb-10">
+      <img alt="" aria-hidden className="w-60 shrink-0 object-contain" src={logoWhite} />
 
-        <p className="m-0 text-center text-base leading-normal tracking-tight text-muted-foreground">
-          You can launch from here, or any time from your terminal with{' '}
-          <code className="font-mono text-sm text-foreground/80">douglas desktop</code>.
-        </p>
-      </div>
+      <div className="flex w-full flex-1 flex-col items-center justify-center gap-8">
+        <div className="w-full max-w-2xl min-w-0 text-center">
+          <p
+            className="fit-text mx-auto mb-4 w-full font-['Dimitri_Swank'] font-normal uppercase leading-[0.9] tracking-[0.08em] text-midground mix-blend-plus-lighter dark:text-foreground/90"
+            style={
+              {
+                '--fit-text-line-height': '0.9',
+                '--fit-text-max': '5rem',
+                '--fit-text-min': '2.25rem'
+              } as CSSProperties
+            }
+          >
+            <span>
+              <span>Douglas Agent is ready</span>
+            </span>
+            <span aria-hidden="true">Douglas Agent is ready</span>
+          </p>
 
-      <HackeryButton
-        disabled={launching}
-        label={launching ? 'Launching' : 'Launch'}
-        loading={launching}
-        onClick={() => void handleLaunch()}
-      />
-
-      {error && (
-        <div className="flex max-w-2xl items-start gap-2 text-sm" role="alert">
-          <AlertCircle className="mt-0.5 shrink-0 text-destructive" size={16} />
-          <div className="min-w-0">
-            <div className="font-medium text-destructive">Couldn&rsquo;t launch the desktop app</div>
-            <div className="mt-0.5 text-muted-foreground">{error}</div>
-          </div>
+          <p className="m-0 text-center text-base leading-normal tracking-tight text-muted-foreground">
+            You can launch from here, or any time from your terminal with{' '}
+            <code className="font-mono text-sm text-foreground/80">douglas desktop</code>.
+          </p>
         </div>
-      )}
+
+        <HackeryButton
+          disabled={launching}
+          label={launching ? 'Launching' : 'Launch'}
+          loading={launching}
+          onClick={() => void handleLaunch()}
+        />
+
+        {error && (
+          <div className="flex max-w-2xl items-start gap-2 text-sm" role="alert">
+            <AlertCircle className="mt-0.5 shrink-0 text-destructive" size={16} />
+            <div className="min-w-0">
+              <div className="font-medium text-destructive">Couldn&rsquo;t launch the desktop app</div>
+              <div className="mt-0.5 text-muted-foreground">{error}</div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -1,11 +1,10 @@
 import { useStore } from '@nanostores/react'
 import clsx from 'clsx'
-import { Check, ChevronRight, FileText, X } from 'lucide-react'
+import { ChevronRight, CircleCheck, FileText, LoaderCircle, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { BrandMark } from '../components/brand-mark'
 import { Button } from '../components/button'
-import { Loader } from '../components/loader'
 import {
   $mode,
   $progress,
@@ -115,7 +114,9 @@ export default function ProgressScreen({ bootstrap }: ProgressProps) {
                   )}
                   key={name}
                 >
-                  {rec.state === 'running' && <Loader className="-ml-2 size-6 shrink-0" />}
+                  {rec.state === 'running' && (
+                    <LoaderCircle className="-ml-2 size-6 shrink-0 animate-spin" />
+                  )}
                   <span className="flex-1 truncate">{rec.info.title}</span>
                   {meta && <span className="text-xs tabular-nums text-muted-foreground/70">{meta}</span>}
                   <StateIcon state={rec.state ?? null} />
@@ -170,16 +171,16 @@ export default function ProgressScreen({ bootstrap }: ProgressProps) {
   )
 }
 
-// Terminal-state markers, neutral by design: a muted check for done/skipped
-// (no celebratory green), a destructive cross for failure. Running renders its
-// spinner on the left; pending stays icon-less.
+// Terminal-state markers, neutral by design: a muted check-in-circle for
+// done/skipped (no celebratory green), a destructive cross for failure.
+// Running renders its spinner on the left; pending stays icon-less.
 function StateIcon({ state }: { state: StageState | null }) {
   if (state === 'succeeded') {
-    return <Check className="shrink-0 text-muted-foreground" size={13} />
+    return <CircleCheck className="shrink-0 text-muted-foreground" size={14} />
   }
 
   if (state === 'skipped') {
-    return <Check className="shrink-0 text-muted-foreground/50" size={13} />
+    return <CircleCheck className="shrink-0 text-muted-foreground/50" size={14} />
   }
 
   if (state === 'failed') {

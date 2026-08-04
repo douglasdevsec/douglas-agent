@@ -3,11 +3,18 @@ import { type CSSProperties } from 'react'
 import { HackeryButton } from '../components/hackery-button'
 import { startInstall } from '../store'
 
+import logoWhite from '../assets/brand/logo_white.png'
+
 /*
  * Welcome screen.
  *
+ * Logo pinned at the top — large, horizontally centered, with only the
+ * container's own padding above it — so it reads as the hero element.
+ * The wordmark/subtitle/button group is pushed down into the remaining
+ * space below, centered within it (not within the whole window anymore).
+ *
  * Mirrors the desktop's chat intro (apps/desktop/src/components/chat/intro.tsx):
- *   - DOUGLAS AGENT wordmark rendered in Collapse Bold, uppercase, tracked
+ *   - DOUGLAS AGENT wordmark rendered in Dimitri Swank, uppercase, tracked
  *   - mix-blend-plus-lighter so the type "glows" on the canvas
  *   - fit-text utility so the wordmark sizes itself to the column
  *
@@ -17,32 +24,36 @@ import { startInstall } from '../store'
  */
 export default function Welcome() {
   return (
-    <div className="hermes-fade-in flex h-full flex-col items-center justify-center gap-10 px-12 py-10">
-      {/* Hero — same recipe the desktop's chat/intro.tsx uses */}
-      <div className="w-full max-w-2xl min-w-0 text-center">
-        <p
-          className="fit-text mx-auto mb-4 w-full font-['Collapse'] font-bold uppercase leading-[0.9] tracking-[0.08em] text-midground mix-blend-plus-lighter dark:text-foreground/90"
-          style={
-            {
-              '--fit-text-line-height': '0.9',
-              '--fit-text-max': '6rem',
-              '--fit-text-min': '2.5rem'
-            } as CSSProperties
-          }
-        >
-          <span>
-            <span>DOUGLAS AGENT</span>
-          </span>
-          <span aria-hidden="true">DOUGLAS AGENT</span>
-        </p>
+    <div className="hermes-fade-in flex h-full flex-col items-center px-12 pt-12 pb-10">
+      <img alt="" aria-hidden className="w-60 shrink-0 object-contain" src={logoWhite} />
 
-        <p className="m-0 text-center text-base leading-normal tracking-tight text-muted-foreground">
-          The agent that grows with you. We&rsquo;ll set things up in the
-          background &mdash; takes a few minutes.
-        </p>
+      <div className="flex w-full flex-1 flex-col items-center justify-center gap-10">
+        {/* Hero — same recipe the desktop's chat/intro.tsx uses */}
+        <div className="w-full max-w-2xl min-w-0 text-center">
+          <p
+            className="fit-text mx-auto mb-4 w-full font-['Dimitri_Swank'] font-normal uppercase leading-[0.9] tracking-[0.08em] text-midground mix-blend-plus-lighter dark:text-foreground/90"
+            style={
+              {
+                '--fit-text-line-height': '0.9',
+                '--fit-text-max': '6rem',
+                '--fit-text-min': '2.5rem'
+              } as CSSProperties
+            }
+          >
+            <span>
+              <span>DOUGLAS AGENT</span>
+            </span>
+            <span aria-hidden="true">DOUGLAS AGENT</span>
+          </p>
+
+          <p className="m-0 text-center text-base leading-normal tracking-tight text-muted-foreground">
+            The agent that grows with you. We&rsquo;ll set things up in the
+            background &mdash; takes a few minutes.
+          </p>
+        </div>
+
+        <HackeryButton label="Install" onClick={() => void startInstall()} />
       </div>
-
-      <HackeryButton label="Install" onClick={() => void startInstall()} />
     </div>
   )
 }
