@@ -577,13 +577,20 @@ for (const key of Object.keys(process.env)) {
 // HERMES_HOME beneath the throwaway userData dir so a fresh-install run never
 // touches the user's real ~/.hermes / %LOCALAPPDATA%\hermes.
 //
-// Douglas Agent: DOUGLAS_HOME / an existing douglas-named directory take
-// priority over all of the above, falling through to the exact Douglas Agent logic
-// unchanged so existing Douglas Agent installs keep working. Mirrors
-// hermes_bootstrap.py::_douglas_home_candidates() and
+// Douglas Agent: DOUGLAS_HOME (or HERMES_HOME set explicitly) always takes
+// priority. Absent either, the default is ALWAYS the douglas-named
+// directory — never a sibling hermes-named one, even if it exists on disk.
+// An existing hermes-named directory is not reliable evidence of a prior
+// Douglas Agent install under its old name: it may equally well belong to
+// a completely unrelated, foreign install of the upstream Hermes Agent
+// product this app is forked from (the two are common to find side by
+// side), and silently adopting it would mix Douglas's data into that
+// install — or point both apps' backends at the same directory, causing
+// them to collide on file locks. Mirrors hermes_bootstrap.py's
+// _resolve_default_douglas_home() and
 // apps/bootstrap-installer/src-tauri/src/paths.rs::hermes_home() — see
 // douglas/README.md, section "Cadena canonica de resolucion
-// Douglas/Douglas Agent", for the single source of truth all three implement.
+// Douglas/Hermes", for the single source of truth all three implement.
 function resolveHermesHome() {
   if (process.env.DOUGLAS_HOME) {
     return normalizeHermesHomeRoot(process.env.DOUGLAS_HOME)
@@ -604,7 +611,7 @@ function resolveHermesHome() {
     // Without this the backend silently falls back to the platform default
     // and reports "No inference provider configured" despite a valid
     // configured home (#45471). Consult the live User-scoped registry value
-    // before the directory-existence checks below.
+    // before falling through to the fixed douglas-named default below.
     const fromRegistryDouglas = readWindowsUserEnvVar('DOUGLAS_HOME')
 
     if (fromRegistryDouglas) {
@@ -619,39 +626,10 @@ function resolveHermesHome() {
   }
 
   if (IS_WINDOWS && process.env.LOCALAPPDATA) {
-    const douglasAppdata = path.join(process.env.LOCALAPPDATA, 'douglas')
-    const localappdata = path.join(process.env.LOCALAPPDATA, 'hermes')
-    const legacy = path.join(app.getPath('home'), '.hermes')
-
-    // Prefer an existing douglas-named install. Otherwise fall through to
-    // the exact pre-existing Douglas Agent logic unchanged: migrate transparently
-    // to LOCALAPPDATA, but honour an existing legacy ~/.hermes setup (no
-    // LOCALAPPDATA install yet) so users don't lose state. New installs
-    // (none of the three exist) go to %LOCALAPPDATA%\douglas.
-    if (directoryExists(douglasAppdata)) {
-      return douglasAppdata
-    }
-    if (directoryExists(localappdata)) {
-      return localappdata
-    }
-    if (directoryExists(legacy)) {
-      return legacy
-    }
-
-    return douglasAppdata
+    return path.join(process.env.LOCALAPPDATA, 'douglas')
   }
 
-  const douglasHome = path.join(app.getPath('home'), '.douglas')
-  const hermesHome = path.join(app.getPath('home'), '.hermes')
-
-  if (directoryExists(douglasHome)) {
-    return douglasHome
-  }
-  if (directoryExists(hermesHome)) {
-    return hermesHome
-  }
-
-  return douglasHome
+  return path.join(app.getPath('home'), '.douglas')
 }
 
 const HERMES_HOME = resolveHermesHome()

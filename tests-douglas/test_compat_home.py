@@ -106,27 +106,34 @@ def test_empty_douglas_home_does_not_override_hermes_home(monkeypatch, fake_home
     assert os.environ["HERMES_HOME"] == hermes_target
 
 
-# ── Directory-existence chain (POSIX) ───────────────────────────────────────
+# ── Fixed douglas-branded default, never a sibling hermes dir (POSIX) ───────
+#
+# A hermes-named directory is never adopted automatically, even if it
+# exists — it may belong to a completely unrelated, foreign install of the
+# upstream Hermes Agent product this app is forked from, and must never be
+# treated as "my own data under the old name." See douglas/README.md,
+# "Cadena canonica de resolucion Douglas/Hermes".
 
 
 def test_douglas_dir_exists_posix_is_used(monkeypatch, fake_home):
     _set_platform(monkeypatch, windows=False)
     (fake_home / ".douglas").mkdir()
-    # No .hermes — should still resolve to .douglas regardless.
 
     hermes_bootstrap.normalize_douglas_env()
 
     assert os.environ["HERMES_HOME"] == str(fake_home / ".douglas")
 
 
-def test_only_hermes_dir_exists_posix_is_used(monkeypatch, fake_home):
-    """Previous Hermes install, no Douglas install yet: must not be orphaned."""
+def test_only_hermes_dir_exists_posix_is_not_adopted(monkeypatch, fake_home):
+    """A sibling ~/.hermes (possibly a foreign, unrelated Hermes Agent
+    install) must never be silently adopted — Douglas always defaults to
+    its own directory, existing or not."""
     _set_platform(monkeypatch, windows=False)
     (fake_home / ".hermes").mkdir()
 
     hermes_bootstrap.normalize_douglas_env()
 
-    assert os.environ["HERMES_HOME"] == str(fake_home / ".hermes")
+    assert os.environ["HERMES_HOME"] == str(fake_home / ".douglas")
 
 
 def test_douglas_wins_over_hermes_when_both_exist_posix(monkeypatch, fake_home):
@@ -151,7 +158,7 @@ def test_neither_exists_defaults_to_douglas_posix(monkeypatch, fake_home):
     assert not (fake_home / ".douglas").exists()
 
 
-# ── Directory-existence chain (Windows) ─────────────────────────────────────
+# ── Fixed douglas-branded default, never a sibling hermes dir (Windows) ─────
 
 
 def test_windows_douglas_appdata_wins(monkeypatch, fake_home, tmp_path):
@@ -167,7 +174,11 @@ def test_windows_douglas_appdata_wins(monkeypatch, fake_home, tmp_path):
     assert os.environ["HERMES_HOME"] == str(local_appdata / "douglas")
 
 
-def test_windows_hermes_appdata_used_when_no_douglas(monkeypatch, fake_home, tmp_path):
+def test_windows_hermes_appdata_not_adopted_when_no_douglas(monkeypatch, fake_home, tmp_path):
+    """A sibling %LOCALAPPDATA%\\hermes (possibly a foreign, unrelated
+    Hermes Agent install) must never be silently adopted — this is exactly
+    the scenario that let a real Hermes.exe and Douglas Agent.exe collide
+    on the same venv in production."""
     _set_platform(monkeypatch, windows=True)
     local_appdata = tmp_path / "AppData" / "Local"
     local_appdata.mkdir(parents=True)
@@ -176,13 +187,12 @@ def test_windows_hermes_appdata_used_when_no_douglas(monkeypatch, fake_home, tmp
 
     hermes_bootstrap.normalize_douglas_env()
 
-    assert os.environ["HERMES_HOME"] == str(local_appdata / "hermes")
+    assert os.environ["HERMES_HOME"] == str(local_appdata / "douglas")
 
 
-def test_windows_legacy_home_hermes_used_as_last_resort(monkeypatch, fake_home, tmp_path):
-    """Neither %LOCALAPPDATA%\\douglas nor %LOCALAPPDATA%\\hermes exist, but
-    a pre-LOCALAPPDATA-era ~/.hermes does — mirrors main.ts's existing
-    legacy special case exactly."""
+def test_windows_legacy_home_hermes_not_adopted(monkeypatch, fake_home, tmp_path):
+    """A pre-LOCALAPPDATA-era ~/.hermes existing is not adopted either —
+    still defaults to %LOCALAPPDATA%\\douglas."""
     _set_platform(monkeypatch, windows=True)
     local_appdata = tmp_path / "AppData" / "Local"
     local_appdata.mkdir(parents=True)
@@ -191,7 +201,7 @@ def test_windows_legacy_home_hermes_used_as_last_resort(monkeypatch, fake_home, 
 
     hermes_bootstrap.normalize_douglas_env()
 
-    assert os.environ["HERMES_HOME"] == str(fake_home / ".hermes")
+    assert os.environ["HERMES_HOME"] == str(local_appdata / "douglas")
 
 
 def test_windows_fresh_install_defaults_to_douglas_appdata(monkeypatch, fake_home, tmp_path):
@@ -207,14 +217,14 @@ def test_windows_fresh_install_defaults_to_douglas_appdata(monkeypatch, fake_hom
 
 def test_windows_without_localappdata_falls_back_to_home_style(monkeypatch, fake_home):
     """LOCALAPPDATA unset on Windows is an edge case, but must still resolve
-    sensibly rather than crash — falls back to the ~/.douglas / ~/.hermes
-    chain, same as POSIX."""
+    sensibly rather than crash — falls back to ~/.douglas, same as POSIX,
+    never adopting a sibling ~/.hermes."""
     _set_platform(monkeypatch, windows=True)
     (fake_home / ".hermes").mkdir()
 
     hermes_bootstrap.normalize_douglas_env()
 
-    assert os.environ["HERMES_HOME"] == str(fake_home / ".hermes")
+    assert os.environ["HERMES_HOME"] == str(fake_home / ".douglas")
 
 
 # ── Generic DOUGLAS_<X> -> HERMES_<X> variable aliasing ─────────────────────

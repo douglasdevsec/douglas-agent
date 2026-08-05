@@ -46,19 +46,22 @@ BOLD='\033[1m'
 REPO_URL_SSH="git@github.com:douglasdevsec/douglas-agent.git"
 REPO_URL_HTTPS="https://github.com/douglasdevsec/douglas-agent.git"
 # Douglas/Hermes compatibility chain (see douglas/README.md, "Cadena
-# canonica de resolucion Douglas/Hermes"): DOUGLAS_HOME > HERMES_HOME > an
-# existing ~/.douglas > an existing ~/.hermes > default to ~/.douglas for a
-# brand-new install. Mirrors hermes_bootstrap.py, main.ts's
+# canonica de resolucion Douglas/Hermes"): DOUGLAS_HOME > HERMES_HOME >
+# default to ~/.douglas, UNCONDITIONALLY — never an existing ~/.hermes,
+# even if one exists. An existing hermes-named directory is not reliable
+# evidence of a prior Douglas Agent install under its old name: it may
+# equally well belong to a completely unrelated, foreign install of the
+# upstream Hermes Agent product this app is forked from (the two are
+# common to find side by side), and silently adopting it would mix
+# Douglas's data into that install — or point both apps' backends at the
+# same directory, causing them to collide on file locks. Mirrors
+# hermes_bootstrap.py's _resolve_default_douglas_home(), main.ts's
 # resolveHermesHome(), and paths.rs's hermes_home() — install.ps1 carries
 # the identical chain (see its param() block for $HermesHome).
 if [ -n "${DOUGLAS_HOME:-}" ]; then
     HERMES_HOME="$DOUGLAS_HOME"
 elif [ -n "${HERMES_HOME:-}" ]; then
     HERMES_HOME="$HERMES_HOME"
-elif [ -d "$HOME/.douglas" ]; then
-    HERMES_HOME="$HOME/.douglas"
-elif [ -d "$HOME/.hermes" ]; then
-    HERMES_HOME="$HOME/.hermes"
 else
     HERMES_HOME="$HOME/.douglas"
 fi

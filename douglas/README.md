@@ -696,14 +696,30 @@ tocarlos.
 |---|---|---|
 | 1 | `%DOUGLAS_HOME%` si está seteada | `$DOUGLAS_HOME` si está seteada |
 | 2 | `%HERMES_HOME%` si está seteada | `$HERMES_HOME` si está seteada |
-| 3 | `%LOCALAPPDATA%\douglas` si el directorio existe | `~/.douglas` si el directorio existe |
-| 4 | `%LOCALAPPDATA%\hermes` si el directorio existe (instalación previa de Hermes) | `~/.hermes` si el directorio existe (instalación previa de Hermes) |
-| 5 | `~/.hermes` si existe (legado pre-`%LOCALAPPDATA%`, mismo caso que ya maneja `main.ts`) | *(no aplica — no existe un legado equivalente en macOS/Linux)* |
-| 6 | `%LOCALAPPDATA%\douglas` (instalación nueva, se crea) | `~/.douglas` (instalación nueva, se crea) |
+| 3 | `%LOCALAPPDATA%\douglas` — SIEMPRE, sin condición | `~/.douglas` — SIEMPRE, sin condición |
 
-Los pasos 3-6 solo se evalúan cuando ni `DOUGLAS_HOME` ni `HERMES_HOME`
-están seteadas — si cualquiera de las dos lo está, gana y no se mira el
-disco.
+El paso 3 solo se evalúa cuando ni `DOUGLAS_HOME` ni `HERMES_HOME` están
+seteadas — si cualquiera de las dos lo está, gana y no se mira el disco.
+Nunca se escanea ni se adopta automáticamente un `%LOCALAPPDATA%\hermes` /
+`~/.hermes` existente, sin importar si existe o no.
+
+**Por qué no hay fallback a un directorio `hermes` existente** (a
+diferencia de versiones anteriores de esta tabla): la existencia de ese
+directorio no es evidencia confiable de "una instalación previa de Douglas
+Agent bajo su nombre antiguo" — puede pertenecer igual de bien a una
+instalación completamente ajena del Hermes Agent original de NousResearch
+(el producto del que Douglas Agent es un fork), instalado de forma
+independiente por el mismo usuario. Ambos casos son indistinguibles con la
+sola existencia del directorio. Adoptarlo en silencio mezclaría datos de
+Douglas dentro de esa instalación ajena, o haría que ambas apps (Hermes.exe
+y Douglas Agent.exe) apunten al mismo `venv`, chocando entre sí por locks
+de archivos — exactamente el incidente que motivó este cambio: un
+`Hermes.exe` migrado en una máquina de desarrollo terminó lanzando su
+propio backend contra el `venv` de `%LOCALAPPDATA%\douglas`, bloqueando el
+auto-updater de Douglas Agent con "another Douglas Agent process is using
+this installation". Migrar datos de una instalación Hermes-branded previa
+de este mismo producto (de antes del rebrand) es ahora una acción única y
+explícita — no algo que se resuelve solo en cada arranque.
 
 **Nota de alcance**: en Electron, la resolución también consulta el
 registro de Windows (`HKCU`) para `DOUGLAS_HOME`/`HERMES_HOME` antes del

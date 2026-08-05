@@ -929,3 +929,53 @@ compilación real en Windows que pidió el usuario (sección 8 del plan).
   hermes-setup → douglas-setup), `472b11e27` (fuga de metadata del .exe),
   `1029a6e06` (URLs de clonado/descarga), `002e0786e` (fix
   `test-desktop.mjs`), `bfe359b00` (esta entrada de documentación).
+
+## hermes_bootstrap.py, apps/desktop/electron/main.ts, apps/bootstrap-installer/src-tauri/src/paths.rs, scripts/install.ps1, scripts/install.sh (retiro del fallback a un directorio hermes existente)
+
+- **Qué:** las cinco implementaciones de la cadena Douglas/Hermes (ver
+  `douglas/README.md`, "Cadena canónica de resolución Douglas/Hermes")
+  pierden el tercer/cuarto/quinto escalón — el que preferia un
+  `%LOCALAPPDATA%\douglas` existente, luego caía a un `%LOCALAPPDATA%\hermes`
+  existente, luego a un `~/.hermes` legado. Ahora, sin `DOUGLAS_HOME` ni
+  `HERMES_HOME` seteadas, el default es SIEMPRE `%LOCALAPPDATA%\douglas` /
+  `~/.douglas`, sin importar si un directorio `hermes` existe o no.
+- **Por qué:** un `Hermes.exe` real (migrado en una máquina de desarrollo
+  para correr el código fusionado de Douglas) lanzó su propio backend
+  contra `%LOCALAPPDATA%\douglas\hermes-agent\venv` — el mismo `venv` que
+  usaba `Douglas Agent.exe`, corriendo al mismo tiempo — porque ambos
+  binarios comparten esta misma lógica y ambos vieron que
+  `%LOCALAPPDATA%\douglas` ya existía. Los dos backends chocaron por locks
+  de archivos, bloqueando el auto-updater de Douglas Agent con "another
+  Douglas Agent process is using this installation". El fallback a
+  `hermes` fue diseñado para un caso legítimo (adoptar los propios datos
+  de un usuario que venía de la versión Hermes-branded de ESTE producto,
+  antes del rebrand) pero no puede distinguir ese caso de uno
+  completamente distinto: un usuario que además tiene instalado, por su
+  cuenta, el Hermes Agent original de NousResearch — el producto del que
+  Douglas Agent es un fork. Dado que muchos usuarios reales tendrán
+  exactamente esa segunda situación al lanzar Douglas Agent públicamente,
+  el fallback automático es inseguro por diseño y se retira.
+- **Alternativa descartada:** distinguir "mis propios datos viejos" de
+  "instalación ajena de Hermes" con un marcador de archivo dentro del
+  directorio (p. ej. un `config.yaml` con una clave `product: douglas`) —
+  descartada por ahora por complejidad: requeriría escribir el marcador
+  retroactivamente en toda instalación Douglas existente antes de poder
+  confiar en su ausencia como señal, y el caso de uso que resolvía
+  (migración silenciosa de una instalación Hermes-branded de Douglas
+  Agent previa al rebrand) ya se ejecutó una vez, de forma manual, durante
+  el rebrand — no es una necesidad recurrente para usuarios nuevos. Si
+  hace falta en el futuro, la migración debe ser una acción explícita del
+  usuario (botón de onboarding o `douglas import-from-hermes`), nunca
+  automática en cada arranque.
+- **Riesgo de merge:** bajo — se elimina código, no se añade; ninguna de
+  las cinco implementaciones gana ramas nuevas.
+- **Tests:** `tests-douglas/test_compat_home.py` reescrito (18/18 tests
+  pasan) para afirmar el nuevo comportamiento — los tests
+  `test_only_hermes_dir_exists_posix_*`,
+  `test_windows_hermes_appdata_*`, y
+  `test_windows_legacy_home_hermes_*` invierten su aserción original.
+  `tests/test_install_ps1_ascii_only.py` sigue pasando (el comentario
+  nuevo en `install.ps1` usa `--` en vez de em-dash). `cargo check` en
+  `apps/bootstrap-installer/src-tauri` compila limpio.
+- **Commit:** pendiente al momento de escribir esta entrada — ver el
+  commit inmediatamente posterior a este en `git log -- douglas/CORE_PATCHES.md`.

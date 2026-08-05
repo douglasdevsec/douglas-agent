@@ -57,11 +57,18 @@ _IS_WINDOWS = sys.platform == "win32"
 _bootstrap_applied = False
 
 
-def _douglas_home_candidates() -> list[Path]:
-    """Directories to check for an existing install, most-preferred first.
+def _resolve_default_douglas_home() -> Path:
+    """The fixed default home for a Douglas Agent install.
 
-    The first entry doubles as the default target for a brand-new install
-    (used unconditionally when none of the candidates exist on disk).
+    Always the douglas-branded directory for this platform — NEVER a
+    sibling ~/.hermes or %LOCALAPPDATA%\\hermes, even if one exists on
+    disk. An existing hermes-named directory is not reliable evidence of
+    a prior Douglas Agent install under its old name: it may equally well
+    belong to a completely unrelated, foreign install of the upstream
+    Hermes Agent product (the two are common to find side by side, since
+    Douglas Agent is a fork of it), and silently adopting it would mix
+    Douglas's data into that install — or point both apps' backends at
+    the same directory, causing them to collide on file locks.
 
     Mirrors apps/desktop/electron/main.ts::resolveHermesHome() and
     apps/bootstrap-installer/src-tauri/src/paths.rs::hermes_home() — see
@@ -69,26 +76,16 @@ def _douglas_home_candidates() -> list[Path]:
     Douglas/Hermes", for the single source of truth this chain implements
     in three separate runtimes (Python here, Node in Electron's main
     process, Rust in the native bootstrap installer that runs before
-    Python exists).
+    Python exists). Migrating an existing Hermes-branded Douglas Agent
+    install (from before this project was renamed) is a one-time,
+    explicit action — not something resolved automatically on every boot.
     """
     if _IS_WINDOWS:
         local_appdata = os.environ.get("LOCALAPPDATA", "").strip()
         if local_appdata:
-            base = Path(local_appdata)
-            return [base / "douglas", base / "hermes", Path.home() / ".hermes"]
-        return [Path.home() / ".douglas", Path.home() / ".hermes"]
-    return [Path.home() / ".douglas", Path.home() / ".hermes"]
-
-
-def _resolve_default_douglas_home() -> Path:
-    candidates = _douglas_home_candidates()
-    for candidate in candidates:
-        try:
-            if candidate.is_dir():
-                return candidate
-        except OSError:
-            continue
-    return candidates[0]
+            return Path(local_appdata) / "douglas"
+        return Path.home() / ".douglas"
+    return Path.home() / ".douglas"
 
 
 def normalize_douglas_env() -> None:

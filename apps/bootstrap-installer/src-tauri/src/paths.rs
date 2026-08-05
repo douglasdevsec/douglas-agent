@@ -16,10 +16,17 @@
 //! writes to one place and the installer reads from another, breaking
 //! the bootstrap-complete check.
 //!
-//! Douglas Agent: DOUGLAS_HOME / an existing douglas-named directory take
-//! priority over all of the above, falling through to the exact Hermes
-//! logic unchanged so existing Hermes installs keep working. Mirrors
-//! `hermes_bootstrap.py::_douglas_home_candidates()` (Python) and
+//! Douglas Agent: DOUGLAS_HOME (or HERMES_HOME set explicitly) always takes
+//! priority. Absent either, the default is ALWAYS the douglas-named
+//! directory — never a sibling hermes-named one, even if it exists on disk.
+//! An existing hermes-named directory is not reliable evidence of a prior
+//! Douglas Agent install under its old name: it may equally well belong to
+//! a completely unrelated, foreign install of the upstream Hermes Agent
+//! product this app is forked from (the two are common to find side by
+//! side), and silently adopting it would mix Douglas's data into that
+//! install — or point both apps' backends at the same directory, causing
+//! them to collide on file locks. Mirrors
+//! `hermes_bootstrap.py::_resolve_default_douglas_home()` (Python) and
 //! `resolveHermesHome()` in `apps/desktop/electron/main.ts` (Electron) —
 //! see `douglas/README.md`, section "Cadena canonica de resolucion
 //! Douglas/Hermes", for the single source of truth all three implement.
@@ -30,9 +37,9 @@ use std::process::Command;
 use tracing_appender::non_blocking::WorkerGuard;
 
 /// Returns the canonical Hermes home directory, respecting $DOUGLAS_HOME /
-/// $HERMES_HOME if set, else preferring an existing douglas-named install
-/// over an existing hermes-named one, else defaulting to a new
-/// douglas-named install. See the module-level doc comment above.
+/// $HERMES_HOME if set, else defaulting unconditionally to a douglas-named
+/// install — never scanning for a sibling hermes-named one. See the
+/// module-level doc comment above.
 pub fn hermes_home() -> PathBuf {
     if let Ok(override_path) = std::env::var("DOUGLAS_HOME") {
         if !override_path.trim().is_empty() {
@@ -48,43 +55,14 @@ pub fn hermes_home() -> PathBuf {
 
     #[cfg(target_os = "windows")]
     {
-        // %LOCALAPPDATA%\douglas, falling back to the exact pre-existing
-        // Hermes logic (%LOCALAPPDATA%\hermes, then legacy ~/.hermes)
-        // unchanged — matches scripts/install.ps1's $HermesHome plus the
-        // Douglas tier layered on top.
         if let Some(local_app_data) = dirs::data_local_dir() {
-            let douglas_appdata = local_app_data.join("douglas");
-            let hermes_appdata = local_app_data.join("hermes");
-            if douglas_appdata.is_dir() {
-                return douglas_appdata;
-            }
-            if hermes_appdata.is_dir() {
-                return hermes_appdata;
-            }
-            if let Some(home) = dirs::home_dir() {
-                let legacy = home.join(".hermes");
-                if legacy.is_dir() {
-                    return legacy;
-                }
-            }
-            return douglas_appdata;
+            return local_app_data.join("douglas");
         }
     }
 
-    // macOS + Linux + fallback: prefer an existing ~/.douglas, then an
-    // existing ~/.hermes (matches Python get_hermes_home(), install.sh,
-    // and the Electron desktop's resolveHermesHome()), else default to
-    // ~/.douglas for a new install.
+    // macOS + Linux + fallback.
     if let Some(home) = dirs::home_dir() {
-        let douglas_home = home.join(".douglas");
-        let hermes_home = home.join(".hermes");
-        if douglas_home.is_dir() {
-            return douglas_home;
-        }
-        if hermes_home.is_dir() {
-            return hermes_home;
-        }
-        return douglas_home;
+        return home.join(".douglas");
     }
 
     // Last resort — current dir, almost certainly wrong but at least

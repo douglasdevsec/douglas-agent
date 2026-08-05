@@ -31,20 +31,21 @@ param(
     [string]$Tag = "",
     # Douglas/Hermes compatibility chain (see douglas/README.md, "Cadena
     # canonica de resolucion Douglas/Hermes"): DOUGLAS_HOME > HERMES_HOME >
-    # an existing %LOCALAPPDATA%\douglas > an existing %LOCALAPPDATA%\hermes
-    # > default to douglas for a brand-new install. Mirrors
-    # hermes_bootstrap.py::_douglas_home_candidates() (Python),
+    # default to %LOCALAPPDATA%\douglas, UNCONDITIONALLY -- never an existing
+    # %LOCALAPPDATA%\hermes, even if one exists. An existing hermes-named
+    # directory is not reliable evidence of a prior Douglas Agent install
+    # under its old name: it may equally well belong to a completely
+    # unrelated, foreign install of the upstream Hermes Agent product this
+    # app is forked from (the two are common to find side by side), and
+    # silently adopting it would mix Douglas's data into that install -- or
+    # point both apps' backends at the same directory, causing them to
+    # collide on file locks. Mirrors
+    # hermes_bootstrap.py::_resolve_default_douglas_home() (Python),
     # apps\desktop\electron\main.ts::resolveHermesHome() (Electron), and
-    # apps\bootstrap-installer\src-tauri\src\paths.rs::hermes_home() (Tauri)
-    # — this script is the 4th implementation of that same chain and, until
-    # now, the only one that didn't actually implement it (it just checked
-    # $env:HERMES_HOME and fell back straight to %LOCALAPPDATA%\hermes,
-    # ignoring an already-installed douglas home entirely).
+    # apps\bootstrap-installer\src-tauri\src\paths.rs::hermes_home() (Tauri).
     [string]$HermesHome = $(
         if ($env:DOUGLAS_HOME) { $env:DOUGLAS_HOME }
         elseif ($env:HERMES_HOME) { $env:HERMES_HOME }
-        elseif (Test-Path "$env:LOCALAPPDATA\douglas") { "$env:LOCALAPPDATA\douglas" }
-        elseif (Test-Path "$env:LOCALAPPDATA\hermes") { "$env:LOCALAPPDATA\hermes" }
         else { "$env:LOCALAPPDATA\douglas" }
     ),
     [string]$InstallDir = "$HermesHome\hermes-agent",
