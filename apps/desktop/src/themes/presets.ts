@@ -3,6 +3,8 @@
  * Add new themes here — no code changes needed elsewhere.
  */
 
+import chatSplatterUrl from '@/assets/backgrounds/chat-emerald-splatter.jpg'
+
 import type { DesktopTheme, DesktopThemeTypography } from './types'
 
 // Color-emoji fonts to append to every stack as a last resort. None of the UI
@@ -276,16 +278,158 @@ export const slateTheme: DesktopTheme = {
   }
 }
 
+// Douglas Agent's own emerald green — the SAME seed values the bootstrap
+// installer paints (apps/bootstrap-installer/src/styles.css `:root.dark`)
+// and the chat intro wordmark already uses (text-emerald-600/dark:400 in
+// components/chat/intro.tsx), so the desktop's dark mode finally matches
+// the rest of the brand instead of the inherited Nous blue.
+
+/** Full emerald wash — sidebar, cards, popovers, AND the general chat
+ *  canvas all sit on the installer's green, exactly as painted there. */
+export const douglasTheme: DesktopTheme = {
+  name: 'douglas',
+  label: 'Douglas',
+  description: "Douglas Agent's emerald green — matches the installer",
+  colors: {
+    background: '#f0fdf6',
+    foreground: '#052e21',
+    card: '#ffffff',
+    cardForeground: '#052e21',
+    muted: '#e3f9ec',
+    mutedForeground: '#3f6b57',
+    popover: '#ffffff',
+    popoverForeground: '#052e21',
+    primary: '#059669',
+    primaryForeground: '#ffffff',
+    secondary: '#d1fae5',
+    secondaryForeground: '#065f46',
+    accent: '#d1fae5',
+    accentForeground: '#065f46',
+    border: '#bbead2',
+    input: '#bbead2',
+    ring: '#059669',
+    midground: '#059669',
+    composerRing: '#059669',
+    destructive: '#c0473a',
+    destructiveForeground: '#ffffff',
+    sidebarBackground: '#eafcf1',
+    sidebarBorder: '#bbead2',
+    userBubble: '#d1fae5',
+    userBubbleBorder: '#a7ecc6'
+  },
+  darkColors: {
+    // Exact installer seeds: background-seed, sidebar-seed, card-seed,
+    // elevated-seed, bubble-seed, primary/secondary/accent-soft/midground.
+    background: '#052e21',
+    foreground: '#ffffff',
+    card: '#064e3b',
+    cardForeground: '#ffffff',
+    muted: '#0b3b2b',
+    mutedForeground: '#8fc9ac',
+    popover: '#065f46',
+    popoverForeground: '#ffffff',
+    primary: '#ffffff',
+    primaryForeground: '#052e21',
+    secondary: '#047857',
+    secondaryForeground: '#eafcf1',
+    accent: '#059669',
+    accentForeground: '#eafcf1',
+    border: '#0e4a35',
+    input: '#0e4a35',
+    ring: '#10b981',
+    midground: '#10b981',
+    composerRing: '#10b981',
+    destructive: '#c0473a',
+    destructiveForeground: '#fef2f2',
+    sidebarBackground: '#021a13',
+    sidebarBorder: '#0e4a35',
+    userBubble: '#065f46',
+    userBubbleBorder: '#0e6b4d'
+  },
+  chatBackgroundImage: chatSplatterUrl
+}
+
+/** Near-black chat canvas with the installer's exact green confined to the
+ *  sidebar, popovers/dialogs, and accents — lets the splatter backdrop read
+ *  as the dominant surface in the transcript instead of competing with a
+ *  green-tinted background. */
+export const douglasNoirTheme: DesktopTheme = {
+  name: 'douglas-noir',
+  label: 'Douglas Noir',
+  description: 'Near-black chat canvas, emerald sidebar and accents',
+  colors: {
+    background: '#fafafa',
+    foreground: '#0a1510',
+    card: '#ffffff',
+    cardForeground: '#0a1510',
+    muted: '#eef1ef',
+    mutedForeground: '#4c5b53',
+    popover: '#ffffff',
+    popoverForeground: '#0a1510',
+    primary: '#059669',
+    primaryForeground: '#ffffff',
+    secondary: '#e3f9ec',
+    secondaryForeground: '#065f46',
+    accent: '#d1fae5',
+    accentForeground: '#065f46',
+    border: '#dfe3e1',
+    input: '#dfe3e1',
+    ring: '#059669',
+    midground: '#059669',
+    composerRing: '#059669',
+    destructive: '#c0473a',
+    destructiveForeground: '#ffffff',
+    sidebarBackground: '#eafcf1',
+    sidebarBorder: '#bbead2',
+    userBubble: '#d1fae5',
+    userBubbleBorder: '#a7ecc6'
+  },
+  darkColors: {
+    background: '#050505',
+    foreground: '#eafcf1',
+    card: '#0d0f0d',
+    cardForeground: '#eafcf1',
+    muted: '#111411',
+    mutedForeground: '#7fa892',
+    // Popovers/dialogs stay on the installer's exact elevated-seed green —
+    // "floating windows" always solid green, regardless of the near-black
+    // chat canvas.
+    popover: '#065f46',
+    popoverForeground: '#ffffff',
+    primary: '#10b981',
+    primaryForeground: '#03150f',
+    secondary: '#0d2018',
+    secondaryForeground: '#c8f3dc',
+    accent: '#059669',
+    accentForeground: '#eafcf1',
+    border: '#16241d',
+    input: '#16241d',
+    ring: '#10b981',
+    midground: '#10b981',
+    composerRing: '#10b981',
+    destructive: '#c0473a',
+    destructiveForeground: '#fef2f2',
+    // Sidebar stays on the installer's exact sidebar-seed green.
+    sidebarBackground: '#021a13',
+    sidebarBorder: '#0e4a35',
+    userBubble: '#0d2018',
+    userBubbleBorder: '#17402c'
+  },
+  chatBackgroundImage: chatSplatterUrl
+}
+
 export const BUILTIN_THEMES: Record<string, DesktopTheme> = {
   nous: nousTheme,
   midnight: midnightTheme,
   ember: emberTheme,
   mono: monoTheme,
   cyberpunk: cyberpunkTheme,
-  slate: slateTheme
+  slate: slateTheme,
+  douglas: douglasTheme,
+  'douglas-noir': douglasNoirTheme
 }
 
 export const BUILTIN_THEME_LIST = Object.values(BUILTIN_THEMES)
 
 /** Skin used when nothing is persisted or the persisted name is retired. */
-export const DEFAULT_SKIN_NAME = 'nous'
+export const DEFAULT_SKIN_NAME = 'douglas-noir'

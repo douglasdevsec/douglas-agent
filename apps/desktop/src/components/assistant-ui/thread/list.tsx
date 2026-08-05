@@ -524,7 +524,19 @@ const ThreadMessageListInner: FC<ThreadMessageListProps> = ({
       style={
         {
           height: clampToComposer ? 'var(--thread-viewport-height)' : '100%',
-          ...(secondaryWindow ? { '--sticky-human-top': secondaryTitlebarGap } : {})
+          ...(secondaryWindow ? { '--sticky-human-top': secondaryTitlebarGap } : {}),
+          // Theme-provided backdrop (see themes/context.tsx's --theme-chat-background-image)
+          // — the main window ONLY. A popped-out secondary window always stays
+          // on the theme's solid background color, never the image, even
+          // though the CSS var itself is set the same way in both windows.
+          ...(!secondaryWindow
+            ? {
+                backgroundImage: 'var(--theme-chat-background-image)',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+                backgroundSize: 'cover'
+              }
+            : {})
         } as CSSProperties
       }
     >

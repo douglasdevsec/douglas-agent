@@ -230,6 +230,16 @@ function applyTheme(theme: DesktopTheme, mode: 'light' | 'dark') {
     root.style.setProperty(k, v)
   }
 
+  // Chat-transcript backdrop image — dark mode only (it's painted for a dark
+  // canvas) and consumed only by the main window's thread viewport (see
+  // ThreadMessageList in components/assistant-ui/thread/list.tsx), never the
+  // sidebar, popovers/dialogs, or a popped-out secondary chat window.
+  if (theme.chatBackgroundImage && isDark) {
+    root.style.setProperty('--theme-chat-background-image', `url("${theme.chatBackgroundImage}")`)
+  } else {
+    root.style.removeProperty('--theme-chat-background-image')
+  }
+
   const chromeBg = chromeBackground(c.background, isDark)
 
   window.hermesDesktop?.setTitleBarTheme?.({

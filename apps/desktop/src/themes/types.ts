@@ -98,4 +98,11 @@ export interface DesktopTheme {
   terminal?: DesktopTerminalPalette
   /** Dark-variant terminal ANSI palette. Falls back to `terminal`. */
   darkTerminal?: DesktopTerminalPalette
+  /**
+   * Optional backdrop image for the main chat transcript ONLY — never the
+   * sidebar, popovers/dialogs, or secondary (popped-out) chat windows, which
+   * always stay on the theme's solid `sidebarBackground`/`popover` colors.
+   * Bundled as a Vite asset URL (`import bg from '@/assets/...'`).
+   */
+  chatBackgroundImage?: string
 }
