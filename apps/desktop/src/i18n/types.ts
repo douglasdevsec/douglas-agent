@@ -247,6 +247,8 @@ export interface Translations {
     openKeybinds: string
     layoutEditor: string
     layoutEditorTitle: string
+    switchToLightMode: string
+    switchToDarkMode: string
   }
 
   keybinds: {

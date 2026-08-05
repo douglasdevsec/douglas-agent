@@ -37,14 +37,14 @@ function slashItem(command: string, group: string, meta = '') {
 const noop = () => {}
 
 /** The rendered shape of one row: does it have an icon, and how is it laid out?
- *  Icons are codicons — an `<i class="codicon codicon-<name>">`, not an SVG. */
+ *  Icons are codicons — rendered as a Tabler SVG carrying `data-codicon="<name>"`. */
 function rowShape(root: HTMLElement) {
   const row = root.querySelector('button') as HTMLElement
-  const icon = row.querySelector('i.codicon')
+  const icon = row.querySelector('svg[data-codicon]')
 
   return {
     hasIcon: Boolean(icon),
-    iconName: icon?.className.match(/codicon-([\w-]+)/)?.[1],
+    iconName: icon?.getAttribute('data-codicon') ?? undefined,
     classes: row.className
   }
 }

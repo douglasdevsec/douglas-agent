@@ -9,6 +9,7 @@ import { Codicon } from '@/components/ui/codicon'
 import { Tip, TipKeybindLabel } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
+import { Moon, Sun } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { $hapticsMuted, toggleHapticsMuted } from '@/store/haptics'
 import {
@@ -18,6 +19,7 @@ import {
   togglePanesFlipped,
   toggleSidebarOpen
 } from '@/store/layout'
+import { useTheme } from '@/themes/context'
 
 import { appViewForPath, isOverlayView, SETTINGS_ROUTE } from '../routes'
 
@@ -102,6 +104,12 @@ export function TitlebarControls({ leftTools = [], tools = [], onOpenSettings }:
   const hapticsMuted = useStore($hapticsMuted)
   const fileBrowserOpen = useStore($fileBrowserOpen)
   const sidebarOpen = useStore($sidebarOpen)
+  const { resolvedMode, setMode } = useTheme()
+
+  const toggleThemeMode = () => {
+    triggerHaptic('tap')
+    setMode(resolvedMode === 'dark' ? 'light' : 'dark')
+  }
 
   const toggleHaptics = () => {
     if (!hapticsMuted) {
@@ -196,6 +204,13 @@ export function TitlebarControls({ leftTools = [], tools = [], onOpenSettings }:
         triggerHaptic('open')
         navigate(`${SETTINGS_ROUTE}?tab=keybinds`)
       }
+    },
+    {
+      actionId: 'appearance.toggleMode',
+      icon: resolvedMode === 'dark' ? <Sun /> : <Moon />,
+      id: 'theme-toggle',
+      label: resolvedMode === 'dark' ? t.titlebar.switchToLightMode : t.titlebar.switchToDarkMode,
+      onSelect: toggleThemeMode
     },
     {
       actionId: 'nav.settings',

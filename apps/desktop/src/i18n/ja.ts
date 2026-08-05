@@ -202,7 +202,9 @@ export const ja = defineLocale({
     muteHaptics: '触覚フィードバックをオフ',
     unmuteHaptics: '触覚フィードバックをオン',
     openSettings: '設定を開く',
-    openStarmap: 'メモリグラフを開く'
+    openStarmap: 'メモリグラフを開く',
+    switchToLightMode: 'ライトモードに切り替え',
+    switchToDarkMode: 'ダークモードに切り替え'
   },
 
   language: {
