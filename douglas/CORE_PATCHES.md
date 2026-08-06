@@ -979,3 +979,48 @@ compilación real en Windows que pidió el usuario (sección 8 del plan).
   `apps/bootstrap-installer/src-tauri` compila limpio.
 - **Commit:** pendiente al momento de escribir esta entrada — ver el
   commit inmediatamente posterior a este en `git log -- douglas/CORE_PATCHES.md`.
+
+## scripts/install.ps1, hermes_bootstrap.py, apps/desktop/electron/main.ts, apps/bootstrap-installer/src-tauri/src/paths.rs (dos capas mas del mismo problema)
+
+- **Que:** dos correcciones adicionales encontradas al probar la entrada
+  anterior contra una instalacion real: (1) `install.ps1`'s `Set-PathVariable`
+  persistia `HERMES_HOME` (no `DOUGLAS_HOME`) como variable de usuario de
+  Windows via `[Environment]::SetEnvironmentVariable(..., "User")` — ahora
+  persiste `DOUGLAS_HOME` y migra/borra un `HERMES_HOME` heredado si su
+  valor contiene `\douglas\`. (2) Las tres implementaciones de la cadena
+  ganan `defaultBrandHomeDirName()` / `_default_brand_home_dir_name()` /
+  `default_brand_home_dir_name()`: cuando ni `DOUGLAS_HOME` ni `HERMES_HOME`
+  estan seteadas, el default en Windows ya no es "douglas" incondicional —
+  se detecta la marca segun la ubicacion fisica del ejecutable/checkout
+  corriendo (`app.getPath('exe')` / `Path(__file__)` / `current_exe()`
+  contra `%LOCALAPPDATA%\hermes`), asi que una instalacion Hermes-branded
+  corriendo este mismo codigo fusionado se sigue quedando en su propio
+  directorio.
+- **Por que:** `HERMES_HOME` es la variable *propia y original* de Hermes
+  Agent, no un nombre inventado por Douglas — las variables de entorno de
+  Windows son por-usuario, asi que persistirla ahi secuestraba cualquier
+  instalacion de Hermes Agent genuina y completamente ajena hacia el
+  directorio de Douglas en cuanto se abria una terminal nueva. Y aunque (1)
+  resuelve ese caso para usuarios reales, no alcanzaba para la maquina de
+  desarrollo donde se detecto todo esto: un `Hermes.exe` migrado hace
+  tiempo para correr el codigo fusionado de Douglas entiende `DOUGLAS_HOME`
+  con la misma prioridad que Douglas Agent.exe, asi que sin (2) seguia
+  cayendo en el default incondicional "douglas" sin importar que variable
+  de entorno se limpiara.
+- **Alternativa descartada:** ninguna para (1). Para (2): usar
+  `app.getName()` / la identidad de producto compilada — descartada porque
+  ya se verifico que una instalacion Hermes-branded migrada se autoidentifica
+  como "Douglas Agent" en tiempo de ejecucion (mismo codigo fusionado), asi
+  que esa senal no distingue nada; la ubicacion fisica en disco es la unica
+  senal que realmente difiere entre las dos instalaciones.
+- **Riesgo de merge:** bajo — funciones nuevas, ninguna rama existente se
+  modifica; el fallback cuando el checkout no vive bajo un directorio
+  hermes-named sigue siendo "douglas" exactamente como antes.
+- **Tests:** `tests-douglas/test_compat_home.py` gana 2 tests nuevos
+  (`test_windows_brand_detection_defaults_to_douglas_when_not_under_hermes_root`,
+  `test_windows_migrated_hermes_install_defaults_to_hermes_appdata` —
+  reproduce el incidente exacto) — 20/20 pasan. `tests/test_install_ps1_ascii_only.py`
+  sigue pasando. Sintaxis de `install.ps1` validada con
+  `[System.Management.Automation.Language.Parser]::ParseFile` (sin
+  ejecutarlo). `cargo check` compila limpio.
+- **Commit:** pendiente al momento de escribir esta entrada.

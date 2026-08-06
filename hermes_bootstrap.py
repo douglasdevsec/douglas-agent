@@ -83,9 +83,37 @@ def _resolve_default_douglas_home() -> Path:
     if _IS_WINDOWS:
         local_appdata = os.environ.get("LOCALAPPDATA", "").strip()
         if local_appdata:
-            return Path(local_appdata) / "douglas"
+            return Path(local_appdata) / _default_brand_home_dir_name()
         return Path.home() / ".douglas"
     return Path.home() / ".douglas"
+
+
+def _default_brand_home_dir_name() -> str:
+    """Which brand's directory THIS specific checkout should default to.
+
+    Derived from where this very file physically lives on disk, not from
+    anything in the environment. See
+    apps/desktop/electron/main.ts::defaultBrandHomeDirName() for the full
+    reasoning (mirrored here): a Hermes-branded install migrated to run
+    this merged codebase still lives on disk under a hermes-named
+    directory, and without this check would default itself into the
+    douglas-named one instead, colliding with a real Douglas Agent
+    install's venv. Falls back to "douglas" (the current product) for
+    anything not recognizably under a hermes-named install root, e.g.
+    running unpackaged from a dev checkout.
+    """
+    local_appdata = os.environ.get("LOCALAPPDATA", "").strip()
+    if not local_appdata:
+        return "douglas"
+
+    hermes_root = (Path(local_appdata) / "hermes").resolve()
+    this_file = Path(__file__).resolve()
+
+    try:
+        this_file.relative_to(hermes_root)
+    except ValueError:
+        return "douglas"
+    return "hermes"
 
 
 def normalize_douglas_env() -> None:

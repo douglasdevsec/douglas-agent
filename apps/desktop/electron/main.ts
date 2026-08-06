@@ -626,10 +626,34 @@ function resolveHermesHome() {
   }
 
   if (IS_WINDOWS && process.env.LOCALAPPDATA) {
-    return path.join(process.env.LOCALAPPDATA, 'douglas')
+    return path.join(process.env.LOCALAPPDATA, defaultBrandHomeDirName())
   }
 
   return path.join(app.getPath('home'), '.douglas')
+}
+
+// Which brand's directory THIS specific installed copy should default to,
+// derived from the physical location of the running exe — the only signal
+// that actually differs between a Hermes-branded and a Douglas-branded
+// install of this exact codebase. Every other runtime identity (app.getName(),
+// the AUMID) already reports "Douglas Agent" regardless of which exe
+// launched it, since both are built from the same source; a leftover
+// Hermes-branded install migrated to run this merged codebase (see
+// douglas/CORE_PATCHES.md) still lives under %LOCALAPPDATA%\hermes on disk,
+// and without this check it would default itself into %LOCALAPPDATA%\douglas
+// instead — the exact venv collision this whole chain exists to prevent.
+// Falls back to 'douglas' (the current product) for anything not
+// recognizably under a hermes-named install root, e.g. running unpackaged
+// from source in dev.
+function defaultBrandHomeDirName() {
+  if (!IS_WINDOWS || !process.env.LOCALAPPDATA) {
+    return 'douglas'
+  }
+
+  const exePath = app.getPath('exe').toLowerCase()
+  const hermesRoot = path.join(process.env.LOCALAPPDATA, 'hermes').toLowerCase()
+
+  return exePath === hermesRoot || exePath.startsWith(hermesRoot + path.sep) ? 'hermes' : 'douglas'
 }
 
 const HERMES_HOME = resolveHermesHome()

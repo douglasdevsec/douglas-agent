@@ -2319,15 +2319,38 @@ function Set-PathVariable {
         Write-Info "PATH already configured"
     }
     
-    # Set HERMES_HOME so the Python code finds config/data in the right place.
-    # Only needed on Windows where we install to %LOCALAPPDATA%\hermes instead
-    # of the Unix default ~/.hermes
-    $currentHermesHome = [Environment]::GetEnvironmentVariable("HERMES_HOME", "User")
-    if (-not $currentHermesHome -or $currentHermesHome -ne $HermesHome) {
-        [Environment]::SetEnvironmentVariable("HERMES_HOME", $HermesHome, "User")
-        Write-Success "Set HERMES_HOME=$HermesHome"
+    # Persist DOUGLAS_HOME (NOT HERMES_HOME) so a plain terminal opened later
+    # finds config/data without needing this script to run again. HERMES_HOME
+    # is the ORIGINAL Hermes Agent's own variable -- persisting it here at
+    # User scope would silently redirect any separate, genuine install of the
+    # upstream Hermes Agent product (which this app is forked from, and which
+    # many users will already have) into reading/writing Douglas's directory
+    # the next time they open a terminal, since Windows environment variables
+    # are per-user, not per-application. DOUGLAS_HOME has no such collision:
+    # it's a name only this fork's own code (hermes_bootstrap.py's
+    # normalize_douglas_env(), main.ts's resolveHermesHome(), paths.rs's
+    # hermes_home()) ever looks for, and it already wins over HERMES_HOME at
+    # the highest priority tier of that chain.
+    $currentDouglasHome = [Environment]::GetEnvironmentVariable("DOUGLAS_HOME", "User")
+    if (-not $currentDouglasHome -or $currentDouglasHome -ne $HermesHome) {
+        [Environment]::SetEnvironmentVariable("DOUGLAS_HOME", $HermesHome, "User")
+        Write-Success "Set DOUGLAS_HOME=$HermesHome"
     }
+    $env:DOUGLAS_HOME = $HermesHome
     $env:HERMES_HOME = $HermesHome
+
+    # Migration: an earlier version of this installer persisted HERMES_HOME
+    # itself (the bug described above). Clear it if -- and only if -- its
+    # value clearly came from a douglas-branded install (never something a
+    # genuine standalone Hermes Agent user would have set by hand), so it
+    # stops shadowing HERMES_HOME for any other Hermes-family app on this
+    # machine. A value that doesn't match is left alone -- it may be an
+    # intentional user override.
+    $legacyHermesHome = [Environment]::GetEnvironmentVariable("HERMES_HOME", "User")
+    if ($legacyHermesHome -and $legacyHermesHome -like "*\douglas*") {
+        [Environment]::SetEnvironmentVariable("HERMES_HOME", $null, "User")
+        Write-Success "Cleared legacy HERMES_HOME=$legacyHermesHome (was shadowing other Hermes-family apps; use DOUGLAS_HOME=$HermesHome instead)"
+    }
     
     # Update current session
     $env:Path = "$hermesBin;$env:Path"

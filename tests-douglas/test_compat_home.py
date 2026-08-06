@@ -215,6 +215,39 @@ def test_windows_fresh_install_defaults_to_douglas_appdata(monkeypatch, fake_hom
     assert os.environ["HERMES_HOME"] == str(local_appdata / "douglas")
 
 
+def test_windows_brand_detection_defaults_to_douglas_when_not_under_hermes_root(monkeypatch, fake_home, tmp_path):
+    """A checkout living anywhere other than %LOCALAPPDATA%\\hermes (a dev
+    checkout, or a Douglas-branded install) defaults to douglas — this is
+    the common case and is already covered implicitly by every other test
+    above, but is asserted directly here against the real brand-detection
+    helper."""
+    _set_platform(monkeypatch, windows=True)
+    local_appdata = tmp_path / "AppData" / "Local"
+    local_appdata.mkdir(parents=True)
+    monkeypatch.setenv("LOCALAPPDATA", str(local_appdata))
+    monkeypatch.setattr(hermes_bootstrap, "__file__", str(tmp_path / "some-checkout" / "hermes_bootstrap.py"))
+
+    assert hermes_bootstrap._default_brand_home_dir_name() == "douglas"
+
+
+def test_windows_migrated_hermes_install_defaults_to_hermes_appdata(monkeypatch, fake_home, tmp_path):
+    """The exact incident this helper exists for: a Hermes-branded install
+    migrated to run this merged codebase still lives on disk under
+    %LOCALAPPDATA%\\hermes — it must default to ITS OWN directory, not
+    silently redirect into %LOCALAPPDATA%\\douglas and collide with a real
+    Douglas Agent install's venv."""
+    _set_platform(monkeypatch, windows=True)
+    local_appdata = tmp_path / "AppData" / "Local"
+    hermes_checkout = local_appdata / "hermes" / "hermes-agent"
+    hermes_checkout.mkdir(parents=True)
+    monkeypatch.setenv("LOCALAPPDATA", str(local_appdata))
+    monkeypatch.setattr(hermes_bootstrap, "__file__", str(hermes_checkout / "hermes_bootstrap.py"))
+
+    hermes_bootstrap.normalize_douglas_env()
+
+    assert os.environ["HERMES_HOME"] == str(local_appdata / "hermes")
+
+
 def test_windows_without_localappdata_falls_back_to_home_style(monkeypatch, fake_home):
     """LOCALAPPDATA unset on Windows is an edge case, but must still resolve
     sensibly rather than crash — falls back to ~/.douglas, same as POSIX,

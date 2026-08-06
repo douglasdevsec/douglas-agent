@@ -737,3 +737,25 @@ ese caso.
 cualquier variable de entorno y siempre gana cuando está activo. Esta
 cadena solo determina el valor *por defecto* del proceso — nunca compite
 con un override de perfil activo.
+
+**Por qué `install.ps1` persiste `DOUGLAS_HOME`, nunca `HERMES_HOME`, en el
+entorno de usuario de Windows**: `Set-PathVariable` (en `scripts/install.ps1`)
+escribe la variable resuelta con `[Environment]::SetEnvironmentVariable(...,
+"User")` para que una terminal nueva encuentre el install sin volver a
+correr el instalador. Una versión anterior de esta función escribía
+`HERMES_HOME` — que es la variable *propia y original* del Hermes Agent
+del que este proyecto es un fork, no un nombre inventado por Douglas. Las
+variables de entorno de Windows son por-usuario, no por-aplicación: una
+instalación genuina y completamente ajena de Hermes Agent, que lee su
+propia `HERMES_HOME` sin saber que Douglas existe, terminaba heredando el
+directorio de Douglas apenas se abría una terminal nueva — el mismo tipo
+de colisión de `venv` que motivó el cambio de la sección anterior, pero
+por una vía distinta (una variable persistida, no un fallback en tiempo
+de arranque). `DOUGLAS_HOME` no tiene ese problema: solo el propio código
+de este fork la busca (con la prioridad más alta de la tabla de arriba),
+así que persistirla nunca puede secuestrar una instalación de Hermes
+ajena. `Set-PathVariable` también migra automáticamente una `HERMES_HOME`
+heredada de una versión anterior del instalador: si su valor apunta a una
+carpeta `...\douglas...` (evidencia de que la escribió este mismo
+instalador, nunca algo que un usuario de Hermes hubiera seteado a mano),
+la borra.

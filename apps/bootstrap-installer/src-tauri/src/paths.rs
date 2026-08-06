@@ -56,7 +56,7 @@ pub fn hermes_home() -> PathBuf {
     #[cfg(target_os = "windows")]
     {
         if let Some(local_app_data) = dirs::data_local_dir() {
-            return local_app_data.join("douglas");
+            return local_app_data.join(default_brand_home_dir_name(&local_app_data));
         }
     }
 
@@ -68,6 +68,27 @@ pub fn hermes_home() -> PathBuf {
     // Last resort — current dir, almost certainly wrong but at least
     // doesn't panic.
     PathBuf::from(".douglas")
+}
+
+/// Which brand's directory THIS specific installed copy should default to,
+/// derived from the physical location of the running exe — the only signal
+/// that actually differs between a Hermes-branded and a Douglas-branded
+/// install of this exact codebase. See
+/// `apps/desktop/electron/main.ts::defaultBrandHomeDirName()` for the full
+/// reasoning (mirrored here): a Hermes-branded install migrated to run this
+/// merged codebase still lives on disk under a hermes-named directory, and
+/// without this check would default itself into the douglas-named one
+/// instead, colliding with a real Douglas Agent install's venv. Falls back
+/// to `"douglas"` (the current product) for anything not recognizably under
+/// a hermes-named install root, e.g. running unpackaged during development.
+#[cfg(target_os = "windows")]
+fn default_brand_home_dir_name(local_app_data: &Path) -> &'static str {
+    let hermes_root = local_app_data.join("hermes");
+
+    match std::env::current_exe() {
+        Ok(exe) if exe.starts_with(&hermes_root) => "hermes",
+        _ => "douglas",
+    }
 }
 
 pub fn log_dir() -> PathBuf {
