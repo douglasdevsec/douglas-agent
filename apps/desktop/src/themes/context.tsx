@@ -233,11 +233,17 @@ function applyTheme(theme: DesktopTheme, mode: 'light' | 'dark') {
   // Chat-transcript backdrop image — dark mode only (it's painted for a dark
   // canvas) and consumed only by the main window's thread viewport (see
   // ThreadMessageList in components/assistant-ui/thread/list.tsx), never the
-  // sidebar, popovers/dialogs, or a popped-out secondary chat window.
+  // sidebar, popovers/dialogs, or a popped-out secondary chat window. The
+  // tint travels with it as its own var (rather than being computed inline
+  // in list.tsx from the sidebar seed unconditionally) so a theme WITHOUT an
+  // image also gets a transparent tint — otherwise every other skin would
+  // pick up a green wash over its normal chat background.
   if (theme.chatBackgroundImage && isDark) {
     root.style.setProperty('--theme-chat-background-image', `url("${theme.chatBackgroundImage}")`)
+    root.style.setProperty('--theme-chat-background-tint', `color-mix(in srgb, ${c.sidebarBackground ?? c.background} 62%, transparent)`)
   } else {
     root.style.removeProperty('--theme-chat-background-image')
+    root.style.removeProperty('--theme-chat-background-tint')
   }
 
   const chromeBg = chromeBackground(c.background, isDark)

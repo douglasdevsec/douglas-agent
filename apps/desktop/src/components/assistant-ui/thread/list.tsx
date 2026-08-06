@@ -524,22 +524,35 @@ const ThreadMessageListInner: FC<ThreadMessageListProps> = ({
       style={
         {
           height: clampToComposer ? 'var(--thread-viewport-height)' : '100%',
-          ...(secondaryWindow ? { '--sticky-human-top': secondaryTitlebarGap } : {}),
-          // Theme-provided backdrop (see themes/context.tsx's --theme-chat-background-image)
-          // — the main window ONLY. A popped-out secondary window always stays
-          // on the theme's solid background color, never the image, even
-          // though the CSS var itself is set the same way in both windows.
-          ...(!secondaryWindow
-            ? {
-                backgroundImage: 'var(--theme-chat-background-image)',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat',
-                backgroundSize: 'cover'
-              }
-            : {})
+          ...(secondaryWindow ? { '--sticky-human-top': secondaryTitlebarGap } : {})
         } as CSSProperties
       }
     >
+      {/* Theme-provided backdrop (see themes/context.tsx's --theme-chat-background-image)
+          — the main window ONLY. A popped-out secondary window always stays on
+          the theme's solid background color, never the image, even though the
+          CSS var itself is set the same way in both windows.
+
+          Split into two layers instead of one background-image so the blur
+          can soften the photo without also blurring the transcript on top of
+          it: the image sits oversized (-inset-8) and blurred, clipped back to
+          the pane by the parent's overflow-hidden so the blur never reveals a
+          faded edge; the tint (the sidebar's own color, semi-transparent)
+          paints over it unblurred so the image still reads through. */}
+      {!secondaryWindow && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -inset-8 bg-cover bg-center bg-no-repeat blur-[10px]"
+          style={{ backgroundImage: 'var(--theme-chat-background-image)' }}
+        />
+      )}
+      {!secondaryWindow && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{ backgroundColor: 'var(--theme-chat-background-tint)' }}
+        />
+      )}
       {secondaryWindow && (
         // Secondary windows hide the titlebar chrome, so the scroller runs to
         // the window's top edge and streamed text slides up under the OS
