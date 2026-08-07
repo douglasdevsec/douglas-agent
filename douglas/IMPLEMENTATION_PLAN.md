@@ -102,6 +102,112 @@ pendiente de `hermes-setup.exe` → `douglas-setup.exe` en
 `apps/bootstrap-installer/src-tauri/src/paths.rs::installer_dest()`, antes
 de la primera release pública.
 
+### [ ] Módulo Social — plan de fases completo (Facebook primero, luego YouTube y el resto)
+
+Ver `PROGRESS.md`, entrada del 2026-08-07, para la auditoría completa del
+estado y la decisión de arquitectura del usuario. Resumen de esa
+arquitectura: software multi-usuario (free/premium), cada usuario trae sus
+propias credenciales de cada red (nunca una app de Meta/Google centralizada
+de Douglas, nunca edición manual de `.env`), el módulo Social solo es
+usable con una suscripción de Douglas Portal activa, y ese gate debe
+resistir modificación local del cliente — hoy desbloqueado a propósito
+para poder probar mientras se construye.
+
+**Fase A — Frontend mockeado.** ✅ Completa antes de esta sesión (ver
+`douglas/CORE_PATCHES.md`, "Capa social — Etapa A, Bloque 2" y "post-Etapa
+A"). Panel, wizard genérico, tarjeta de aprobación registrada en el
+pipeline de tools, teaser en el home, gate premium — todo construido,
+todo mockeado.
+
+**Fase B1 — Desbloqueo temporal + credenciales de Facebook.** ✅ Completa.
+- [x] `isPremiumUser()` → `true` temporal, para poder probar.
+- [x] `hermes_cli/social_platforms.py` — almacenamiento local de
+  `FACEBOOK_APP_ID`/`FACEBOOK_APP_SECRET`/`FACEBOOK_PAGE_ID` por usuario,
+  reutilizando `save_env_value`/`get_env_value`/`remove_env_value`
+  (mismo patrón que WhatsApp Cloud/Slack/Telegram — nunca un almacén
+  centralizado, nunca sale de la máquina del usuario). **Nota**: no quedó
+  en `douglas/plugins/social_auth/` como se sugería originalmente en
+  `fixtures.ts` — `douglas/` no es un paquete Python instalable (ver
+  `CORE_PATCHES.md`, entrada de hoy, para el porqué completo). El futuro
+  adaptador de publicación (Fase B3) sí irá en `plugins/platforms/facebook/`.
+- [x] `GET`/`PUT /api/social/platforms/{platform_id}` en
+  `hermes_cli/web_server.py` (toque mínimo de núcleo, registrado en
+  `CORE_PATCHES.md`) — 8/8 tests en `tests/hermes_cli/test_social_platforms.py`.
+- [x] Wizard de Facebook (`fixtures.ts`/`connection-wizard.tsx`/
+  `index.tsx`) pide App ID/App Secret propios primero, luego Page ID, y
+  guarda de verdad contra el backend de arriba — sin fingir que el paso
+  final de autorización (todavía mockeado) ya está "conectado".
+
+**Resuelto**: 2026-08-07. Ver `PROGRESS.md`, entrada del 2026-08-07, y
+`CORE_PATCHES.md` para el detalle de verificación completo.
+
+**Fase B2 — OAuth real de Facebook (pendiente).**
+Intercambio de código de autorización contra la Graph API de Meta, usando
+las credenciales que el propio usuario ingresó en B1. Guardar el resultado
+(Page Access Token) con el mismo `save_env_value`.
+
+**Pregunta abierta para el usuario**: estrategia de `redirect_uri`. Meta
+exige un redirect URI válido para el flujo OAuth estándar de "Facebook
+Login for Business". Dos caminos investigados (ver `PROGRESS.md` de hoy
+para el detalle de qué ya existe en el repo como precedente):
+- (a) **Servidor loopback temporal** — Electron levanta un `http://
+  127.0.0.1:<puerto>/callback` efímero solo durante el flujo de conexión,
+  captura el código, lo cierra. Meta permite `localhost` como redirect URI
+  en apps en modo desarrollo. Más limpio para una app de escritorio, pero
+  nuevo en este repo (ningún adaptador existente lo hace así).
+- (b) **Pegado manual de URL** — mismo truco que ya usa
+  `plugins/platforms/google_chat/oauth.py` (`redirect_uri` deliberadamente
+  roto, el usuario copia el parámetro `code` de la URL fallida y lo pega
+  de vuelta). Ya hay precedente funcionando en este repo, pero es una peor
+  experiencia de usuario para un flujo que debería sentirse nativo desde
+  el frontend.
+
+**Fase B3 — Adaptador de publicación real (pendiente).**
+`plugins/platforms/facebook/adapter.py`, siguiendo el patrón canónico ya
+documentado en `AGENTS.md` (`plugins/platforms/irc/adapter.py`).
+Publicación de texto + imagen a la Page vía Graph API usando el Page
+Access Token de B2. Conectar `social_publish` como tool call real que el
+agente pueda emitir — hoy el `approval-card.tsx` solo se alcanza con
+datos mock.
+
+**Fase B4 — Estado de conexión real en el panel (pendiente).**
+`MOCK_SOCIAL_CONNECTIONS` en `fixtures.ts` sigue siendo estático. Falta un
+`GET` que refleje si Facebook está realmente configurado/conectado, para
+que el panel dependiente de estos datos deje de mostrar un estado
+inventado.
+
+**Fase C — Repetir B1-B4 para YouTube.**
+Proyecto en Google Cloud + YouTube Data API v3 + pantalla de consentimiento
+OAuth por parte de cada usuario (mismo modelo BYO-credenciales). El repo
+ya depende de `google-api-python-client` (hoy solo usado para Google
+Chat/Workspace) — reutilizable para el auth, no para upload de video, que
+hay que construir. `plugins/platforms/google_chat/oauth.py` es la
+referencia OAuth más cercana que ya existe en el repo (ver Fase B2).
+
+**Fase D — Repetir para Instagram, LinkedIn, TikTok, X.**
+Instagram depende de tener una Page de Facebook vinculada (Meta lo exige),
+así que naturalmente sigue después de Facebook, no en paralelo.
+
+**Fase E — Entitlement real de Douglas Portal, blindado (pendiente, proyecto propio).**
+Esta es la pieza más grande y la única que no es "construir un adaptador
+más" — requiere un backend de Douglas Portal que **hoy no existe en
+absoluto** (`douglas/billing/` sigue vacío, es un scaffold). Diseño
+propuesto (sin construir todavía): el backend emite un token de
+entitlement firmado (ej. JWT con clave privada del servidor) cuando la
+suscripción está activa; el cliente desktop verifica la firma con una
+clave pública embebida en el build, sin confiar en ningún flag local. Así
+un usuario que parchee su copia local del cliente no puede fabricar un
+token válido sin comprometer el servidor — el objetivo realista de
+"blindado", no una promesa de invulnerabilidad total (ninguna app
+instalada localmente lo es).
+
+**Preguntas abiertas para el usuario, antes de diseñar Fase E a fondo**:
+¿Douglas Portal se construye sobre Stripe directo (como ya insinúa
+`douglas/README.md` para `douglas/billing/`), o se evalúa reutilizar/
+integrar con algo del sistema de Nous Portal? ¿Cuándo se prioriza esta
+fase — antes o después de tener Facebook/YouTube funcionando de punta a
+punta con el gate desbloqueado?
+
 ### [ ] Deuda pre-existente sin commitear: swap de icono de marca
 
 Desde antes de esta sesión (sin tocar, ver nota en cada resumen de commit

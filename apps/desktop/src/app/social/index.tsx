@@ -13,14 +13,16 @@ import {
   DialogTitle,
   preventCloseButtonAutoFocus
 } from '@/components/ui/dialog'
+import { updateSocialPlatform } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { Eye } from '@/lib/icons'
+import { readableError } from '@/store/notifications'
 
 import { Panel, PanelHeader } from '../overlays/panel'
 import { ListRow } from '../settings/primitives'
 
 import { SocialApprovalCard } from './approval-card'
-import { ConnectionWizard } from './connection-wizard'
+import { ConnectionWizard, type StepValidationResult } from './connection-wizard'
 import {
   connectionFor,
   MOCK_APPROVAL_PREVIEW,
@@ -104,9 +106,35 @@ function NetworkRow({
   )
 }
 
-// Etapa A — mocked frontend for the social layer. Backend (douglas/plugins/
-// social_auth, social-connect skill) lands in Etapa B; see
-// douglas/PLAN-CAPA-SOCIAL.md and douglas/CORE_PATCHES.md.
+// Etapa A frontend (douglas/CORE_PATCHES.md) + Fase B1's first real backend
+// wiring, Facebook only (douglas/IMPLEMENTATION_PLAN.md, "Modulo Social").
+// Every other network, and Facebook's final "permissions" step, are still
+// entirely mocked.
+const FACEBOOK_STEP_ENV_KEY: Record<string, string> = {
+  'app-id': 'FACEBOOK_APP_ID',
+  'app-secret': 'FACEBOOK_APP_SECRET',
+  'page-id': 'FACEBOOK_PAGE_ID'
+}
+
+async function validateFacebookStep(stepId: string, value: string): Promise<StepValidationResult> {
+  const envKey = FACEBOOK_STEP_ENV_KEY[stepId]
+
+  // The final 'permissions' step is real OAuth (Fase B2 — not built yet).
+  // Let it through unmodified so the wizard's mocked-success path still
+  // covers it, same as every still-fully-mocked network.
+  if (!envKey) {
+    return { ok: true }
+  }
+
+  try {
+    await updateSocialPlatform('facebook', { env: { [envKey]: value } })
+
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: readableError(err, 'No se pudo guardar la credencial.').message }
+  }
+}
+
 export function SocialView({ onClose }: SocialViewProps) {
   const { t } = useI18n()
   const [wizardNetwork, setWizardNetwork] = useState<SocialNetworkId | null>(null)
@@ -149,6 +177,7 @@ export function SocialView({ onClose }: SocialViewProps) {
                 networkLabel={t.social.networks[wizardNetwork] ?? wizardNetwork}
                 onCancel={() => setWizardNetwork(null)}
                 onDone={() => setWizardNetwork(null)}
+                onValidateStep={wizardNetwork === 'facebook' ? validateFacebookStep : undefined}
                 steps={MOCK_WIZARD_STEPS[wizardNetwork]}
               />
             </>

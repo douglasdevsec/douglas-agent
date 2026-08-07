@@ -1,8 +1,9 @@
-// Mocked data for the Etapa A social layer (no backend yet — see
-// douglas/CORE_PATCHES.md). The shapes here are what a future
-// `douglas/plugins/social_auth/` + `social-connect` skill would realistically
-// return, so the real integration in Etapa B only has to fill these in, not
-// redesign the frontend around them.
+// Mocked data for the Etapa A social layer (see douglas/CORE_PATCHES.md) —
+// still true for every network except Facebook's credential-entry steps,
+// which now call a real backend (hermes_cli/social_platforms.py, see
+// connection-wizard.tsx's onValidateStep). The `MOCK_SOCIAL_CONNECTIONS`
+// status list below is still entirely mocked for all networks, Facebook
+// included — see douglas/IMPLEMENTATION_PLAN.md, "Modulo Social", Fase B4.
 
 export type SocialNetworkId = 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'x' | 'youtube'
 
@@ -70,8 +71,31 @@ export interface WizardStepDefinition {
 }
 
 export const MOCK_WIZARD_STEPS: Record<SocialNetworkId, readonly WizardStepDefinition[]> = {
+  // Facebook's first two steps are real (see connection-wizard.tsx's
+  // onValidateStep + hermes.ts's updateSocialPlatform) — every user brings
+  // their OWN Meta developer app, never a Douglas-owned one shared across
+  // installs, so credentials are collected here rather than via a
+  // centralized OAuth "just authorize" flow. See douglas/PROGRESS.md
+  // (2026-08-07 entry) for the product decision and
+  // douglas/IMPLEMENTATION_PLAN.md ("Modulo Social") for what's still
+  // mocked (the final 'permissions' step — real OAuth is Fase B2).
   facebook: [
-    { id: 'business-account', title: 'Cuenta profesional', instruction: 'Confirma que tienes una cuenta de Facebook Business.' },
+    {
+      id: 'app-id',
+      title: 'App ID de Meta',
+      instruction: 'Pega el App ID de tu propia app de Meta for Developers.',
+      hasInput: true,
+      inputLabel: 'App ID',
+      inputPlaceholder: '1234567890123456'
+    },
+    {
+      id: 'app-secret',
+      title: 'App Secret de Meta',
+      instruction: 'Pega el App Secret de esa misma app. Se guarda solo en tu equipo.',
+      hasInput: true,
+      inputLabel: 'App Secret',
+      inputPlaceholder: 'a1b2c3d4e5f6...'
+    },
     {
       id: 'page-id',
       title: 'Página vinculada',

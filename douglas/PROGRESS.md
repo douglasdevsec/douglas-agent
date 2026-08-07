@@ -277,3 +277,152 @@ renderer). Se publicó una reproducción visual del mecanismo exacto
 artifact, mostrando antes/después del fix lado a lado.
 
 **Commit**: `49933f6fb`.
+
+---
+
+## 2026-08-07 — Módulo Social: auditoría completa + arranque de la integración real de Facebook
+
+### Por qué esta entrada es más larga que las anteriores
+
+El usuario pidió explícitamente consolidar aquí **todo** el estado del
+módulo Social — lo que ya documentaba `douglas/CORE_PATCHES.md` disperso
+en 3 secciones distintas, más lo que la auditoría de hoy encontró en
+código, más el plan de fases hacia adelante — porque dos documentos que
+`CORE_PATCHES.md` referencia como fuente de los pasos reales de Meta
+(`PROMPT-CAPA-SOCIAL-ETAPA-A.md`, `douglas/PLAN-CAPA-SOCIAL.md`) **no
+existen en el repo** (verificado con `find` exhaustivo) — eran
+aparentemente prompts de sesión que nunca se guardaron a disco. Esta
+entrada + `IMPLEMENTATION_PLAN.md` pasan a ser la única fuente de verdad
+viva para este módulo de aquí en adelante.
+
+### Estado exacto encontrado en la auditoría (antes de tocar nada hoy)
+
+**Frontend (`apps/desktop/src/app/social/`) — completo mockeado, "Etapa A,
+Bloque 2" en `CORE_PATCHES.md`:**
+- `index.tsx` (`SocialView`) — panel con las 6 redes (Facebook, Instagram,
+  YouTube, LinkedIn, TikTok, X), botón Connect/Manage/Reconnect por fila.
+- `connection-wizard.tsx` — asistente genérico dirigido por datos
+  (`WizardStepDefinition[]`), sin backend: `validate()` es un
+  `window.setTimeout` que siempre "tiene éxito".
+- `approval-card.tsx` — tarjeta de aprobación de publicación, registrada
+  como tool-card real para `toolName === 'social_publish'` en
+  `message-parts.tsx` — pero **ningún backend emite ese tool call
+  todavía**; solo se llega ahí vía el botón "Vista previa" con datos mock.
+- `fixtures.ts` — todos los datos simulados (conexiones, pasos del
+  wizard, preview de aprobación).
+- `home-teaser.tsx` — fila de 6 íconos en el home del chat (post-Etapa A,
+  aprobado y documentado aparte en `CORE_PATCHES.md`).
+- El gating premium (`premium-gate.tsx`, ver abajo) envuelve tanto el
+  panel como el teaser — confirmado consistente entre ambas superficies.
+
+**Backend — no existe para ninguna de las 6 redes.** `plugins/platforms/`
+tiene 21 adaptadores reales (WhatsApp, Slack, Telegram, Discord, IRC,
+etc.) — cero para Facebook/Instagram/YouTube/TikTok/LinkedIn/X.
+`douglas/plugins/` y `douglas/billing/` eran carpetas vacías (solo
+`.gitkeep`) — `douglas/plugins/social_auth/`, mencionado en comentarios de
+`fixtures.ts` como el destino futuro, nunca se había creado.
+
+**El bloqueo de los botones — mecanismo confirmado, no real todavía:**
+```ts
+// apps/desktop/src/components/premium-gate.tsx (antes de hoy)
+export function isPremiumUser(): boolean {
+  return false
+}
+```
+Flag hardcodeado, documentado en su propio comentario como "punto de
+decisión mockeado" para que conectar el billing real después sea "un
+cambio de un solo archivo". No consulta ningún backend.
+
+**Billing real — existe, pero desconectado de Social.**
+`hermes_cli/cli_billing_mixin.py` (1566 líneas) tiene un sistema de
+suscripciones/Stripe real y funcional, pero es del **Nous Portal**
+(`portal.nousresearch.com`) — el propio `douglas/README.md` ya aclara que
+`douglas/billing/` sería un "cliente de pagos propio (Stripe),
+**desacoplado del Nous Portal**" — es decir, Nous Portal es un sistema de
+NousResearch, no el "Douglas Portal" que el usuario tiene en mente; son
+conceptualmente distintos, no solo un rename pendiente. Nous Portal usa
+OAuth device-code flow (`hermes_cli/auth.py`) contra un backend real y sí
+expone `subscription_tier`/`has_active_subscription` — es la referencia
+de patrón a seguir, pero no el sistema a reutilizar directamente.
+
+### La decisión de arquitectura del usuario para este módulo (registrada aquí porque cambia el diseño mockeado original)
+
+El usuario definió explícitamente el modelo de producto, distinto de lo
+que el mock actual asumía:
+
+1. **Douglas Agent es software para cualquier usuario del mundo**, de
+   cuenta gratis a premium.
+2. **Solo las cuentas premium** (con suscripción de Douglas Portal activa)
+   tienen acceso al módulo Social — free lo ve bloqueado.
+3. **Cada usuario usa sus propias credenciales** (`FACEBOOK_APP_ID`/
+   `FACEBOOK_APP_SECRET`, y el equivalente por red) — **nunca** un app de
+   Meta centralizada de Douglas. Esto es DISTINTO del wizard mockeado
+   actual, cuyos pasos para Facebook (`fixtures.ts`) asumían "Página
+   vinculada" + "Permisos" directo, como si Douglas ya tuviera su propia
+   app de Meta y el usuario solo autorizara contra ella. El wizard se
+   actualiza hoy para pedir primero App ID/App Secret propios del
+   usuario (ver más abajo).
+4. **Ningún usuario debe tocar un archivo `.env` a mano** — las
+   credenciales se ingresan desde el frontend y el backend las persiste
+   localmente (mismo patrón ya usado para WhatsApp Cloud/Slack/Telegram:
+   `save_env_value()`/`get_env_value()` en `hermes_cli/config.py`,
+   escritura atómica a `$HERMES_HOME/.env`, permisos 0600). Las
+   credenciales del usuario **nunca salen de su máquina** — no hay
+   almacenamiento centralizado de secretos de terceros en ningún backend
+   de Douglas.
+5. **El gate premium debe estar "blindado"** contra crackeo/modificación
+   del binario local. Nota de diseño honesta: ninguna protección puramente
+   del lado del cliente es 100% infalible (cualquier app instalada
+   localmente puede inspeccionarse/parchearse) — el objetivo realista es
+   que la funcionalidad dependa de un **token de entitlement verificable
+   criptográficamente** emitido por un backend real de Douglas Portal
+   (firmado con una clave privada del servidor; el cliente verifica la
+   firma con una clave pública embebida), no solo de un `if` local — así
+   un cliente parcheado no puede fabricar un token válido sin comprometer
+   el servidor. Esto requiere un backend de Douglas Portal que **hoy no
+   existe** (`douglas/billing/` sigue vacío) — es su propia fase, más
+   grande que "endurecer un check". Ver fases en
+   `IMPLEMENTATION_PLAN.md`.
+6. **Por ahora, desbloqueado para pruebas** — decisión explícita y
+   temporal del usuario mientras se construye el backend real, pieza por
+   pieza, empezando por Facebook.
+
+### Qué se hizo hoy
+
+Ver `IMPLEMENTATION_PLAN.md` para el detalle fase por fase (arquitectura
+completa, incluyendo lo pendiente). Resumen de lo que quedó funcionando
+al cierre de esta sesión:
+- `isPremiumUser()` → `true` temporal, comentado como solo-para-pruebas.
+- `douglas/plugins/social_auth/` — módulo nuevo, backend real de
+  almacenamiento de credenciales por usuario (Facebook: App ID, App
+  Secret, Page ID), reutilizando `save_env_value`/`get_env_value`/
+  `remove_env_value` — mismo patrón que WhatsApp Cloud/Slack, nunca
+  reinventado.
+- `GET`/`PUT /api/social/platforms/{platform_id}` en `hermes_cli/
+  web_server.py` — toque mínimo de núcleo (registro de rutas + import),
+  deliberadamente separado del registro de plataformas de *mensajería*
+  (`PLATFORM_REGISTRY`), porque Social no es un gateway de chat con
+  adaptador corriendo — es credenciales + publicación bajo demanda.
+- `fixtures.ts` — pasos del wizard de Facebook actualizados: primero App
+  ID/App Secret (propios del usuario), luego Page ID, luego el paso de
+  autorización (todavía simulado — el OAuth real es la fase siguiente).
+- `connection-wizard.tsx` — nuevo prop opcional `onValidateStep`, para
+  que pasos específicos llamen al backend real sin romper el
+  comportamiento mockeado de las otras 5 redes (que lo siguen usando sin
+  ese prop).
+- `index.tsx`/`hermes.ts` — conectan el wizard de Facebook al backend real
+  para los pasos de credenciales; el paso final de autorización se deja
+  claramente marcado como pendiente (Fase 3, OAuth), no se simula como
+  "conectado" para no reportar un estado falso.
+
+**Deliberadamente NO hecho hoy** (documentado como próximas fases, no
+como olvido): el intercambio OAuth real de Facebook (requiere decidir la
+estrategia de `redirect_uri` con el usuario — ver pregunta abierta en
+`IMPLEMENTATION_PLAN.md`), el adaptador de publicación real a la Graph
+API, el estado de conexión real en el panel (`MOCK_SOCIAL_CONNECTIONS`
+sigue siendo estático — falta el `GET` que refleje si Facebook está
+realmente configurado), y el backend de entitlement real de Douglas
+Portal (el gate sigue siendo un flag hardcodeado, ahora en `true` en vez
+de `false`, no un check real).
+
+**Commit**: pendiente al momento de escribir esta entrada.

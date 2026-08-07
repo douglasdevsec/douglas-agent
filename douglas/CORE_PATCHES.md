@@ -1096,3 +1096,79 @@ compilación real en Windows que pidió el usuario (sección 8 del plan).
   limpio (solo warnings preexistentes no relacionados). Verificacion en vivo
   descrita arriba, contra la instalacion real con el proceso corriendo.
 - **Commit:** pendiente al momento de escribir esta entrada.
+
+## hermes_cli/social_platforms.py (nuevo), hermes_cli/web_models.py, hermes_cli/web_server.py, apps/desktop/src/store/notifications.ts — Módulo Social, Fase B1: credenciales reales de Facebook
+
+**Qué:** primer backend real para el módulo Social (ver `douglas/PROGRESS.md`,
+entrada del 2026-08-07, para la arquitectura completa). Cuatro piezas:
+
+- `hermes_cli/social_platforms.py` (**archivo nuevo**, sin equivalente
+  upstream — riesgo de merge nulo): `SOCIAL_PLATFORM_REGISTRY` (hoy solo
+  `facebook`: `FACEBOOK_APP_ID`/`FACEBOOK_APP_SECRET`/`FACEBOOK_PAGE_ID`) +
+  `get_social_platform_status()`/`update_social_platform_credentials()`,
+  envolviendo `save_env_value`/`get_env_value`/`remove_env_value`
+  (`hermes_cli/config.py`) — el mismo escritor atómico que ya usan WhatsApp
+  Cloud/Slack/Telegram. Nunca devuelve un valor crudo, solo `is_set` +
+  `redact_key()`.
+- `hermes_cli/web_models.py` — `SocialPlatformUpdate` (modelo Pydantic),
+  junto a `MessagingPlatformUpdate` por ubicación, misma forma (`env`/
+  `clear_env`) pero sin `enabled` (no hay adaptador corriendo que habilitar).
+- `hermes_cli/web_server.py` — `GET`/`PUT /api/social/platforms/{platform_id}`,
+  deliberadamente separadas de las rutas de mensajería (`PLATFORM_REGISTRY`)
+  en vez de fusionadas ahí: Social es "credenciales + publicación bajo
+  demanda", no un gateway con adaptador persistente — el registro de
+  mensajería trae lógica de `multiplex_port_binding_conflict`/
+  `gateway_running` que no aplica aquí y habría sido puro código muerto o,
+  peor, una condición mal adaptada.
+- `apps/desktop/src/store/notifications.ts` — `readableError()` pasó de
+  privada a `export` (una palabra) para que el wizard de conexión pueda
+  mostrar un mensaje de error legible inline sin duplicar la lógica de
+  parseo de errores de IPC/HTTP ya existente.
+
+**Decisión de arquitectura corregida sobre la marcha:** el frontend
+(`apps/desktop/src/app/social/fixtures.ts`) traía comentarios apuntando a
+un futuro `douglas/plugins/social_auth/` como destino del backend. Se
+investigó antes de escribir código y se encontró que `douglas/` **no es un
+paquete Python instalable** — no está en `[tool.setuptools.packages.find]`
+de `pyproject.toml`, no tiene `__init__.py`, y el propio
+`douglas/compat.py` documenta explícitamente por qué el núcleo no puede
+depender de que `douglas/` esté en `sys.path`. Poner la lógica ahí habría
+producido un `ImportError` en cuanto `web_server.py` intentara importarla.
+En cambio, se siguió el precedente real ya existente en el repo: TODO
+almacenamiento de credenciales de plataforma (WhatsApp Cloud, Slack,
+Telegram) ya vive en `hermes_cli/`, no en una capa de producto separada —
+es infraestructura compartida, no una feature exclusiva de Douglas. El
+futuro adaptador de publicación real (Fase B3, no construido hoy) sí debe
+ir en `plugins/platforms/facebook/`, ese paquete SÍ es instalable
+(`plugins`, `plugins.*` en `packages.find`) y es el lugar canónico ya
+usado por los 21 adaptadores existentes (IRC, WhatsApp, Slack, etc.).
+
+**Por qué:** el usuario definió explícitamente que cada usuario en el mundo
+debe traer sus propias credenciales de Meta (nunca una app de Douglas
+centralizada), ingresadas desde el frontend, nunca editando `.env` a mano.
+Esto reemplaza el diseño mockeado original del wizard de Facebook
+(`fixtures.ts`), que asumía "Página vinculada" + "Permisos" directo, como
+si Douglas ya tuviera su propia app de Meta.
+
+**Alternativa descartada:** reutilizar `PLATFORM_REGISTRY`/
+`update_messaging_platform` tal cual para Facebook — descartada porque esa
+ruta asume un adaptador de gateway corriendo (chequea `multiplex_profiles`,
+`gateway_running`, etc.), semánticamente equivocado para "publicar bajo
+demanda a una Page".
+
+**Riesgo de merge:** bajo. `social_platforms.py` es un archivo nuevo sin
+equivalente upstream. `web_models.py`/`web_server.py` ganan bloques
+aditivos (un modelo Pydantic más, dos rutas más) sin tocar ninguna rama
+existente — mismo perfil de riesgo que cualquier endpoint nuevo.
+
+**Verificado:** `hermes_cli.web_server` importa limpio end-to-end.
+`FastAPI TestClient` contra las rutas reales (`GET`/`PUT`, guardar, leer,
+redacción confirmada `***` sin filtrar el valor crudo, clave/plataforma
+desconocida rechazadas 400/404, limpiar credencial, valor en blanco
+ignorado) — formalizado en `tests/hermes_cli/test_social_platforms.py`
+(8/8 pasan). Frontend: `tsc --noEmit` y `eslint` limpios (sandbox
+sincronizado), consola del renderer sin errores nuevos tras el cambio
+(verificación limitada — el servidor de desarrollo del renderer solo,
+sin el IPC bridge completo de Electron, no llega a la pantalla real del
+wizard; ver nota de alcance en `douglas/PROGRESS.md`).
+- **Commit:** pendiente al momento de escribir esta entrada.

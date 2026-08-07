@@ -71,6 +71,11 @@ class MessagingPlatformUpdate(BaseModel):
     profile: Optional[str] = None
 
 
+class SocialPlatformUpdate(BaseModel):
+    env: Dict[str, str] = {}
+    clear_env: List[str] = []
+
+
 class TelegramOnboardingStart(BaseModel):
     bot_name: Optional[str] = None
 

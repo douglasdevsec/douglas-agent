@@ -265,6 +265,30 @@ export interface MessagingPlatformTestResponse {
   state?: null | string
 }
 
+// -- Social platforms (Facebook, YouTube, ...) --------------------------------
+// Publish-on-demand platform credentials, distinct from messaging platforms
+// above (no running adapter/listener). Every credential is the user's own —
+// their own developer app, never one Douglas owns centrally — see
+// hermes_cli/social_platforms.py and douglas/PROGRESS.md (2026-08-07 entry).
+
+export interface SocialPlatformUpdate {
+  clear_env?: string[]
+  env?: Record<string, string>
+}
+
+export interface SocialPlatformEnvField {
+  is_set: boolean
+  key: string
+  redacted_value: null | string
+}
+
+export interface SocialPlatformStatus {
+  configured: boolean
+  env_vars: SocialPlatformEnvField[]
+  id: string
+  name: string
+}
+
 // -- Webhooks (subscription CRUD) --------------------------------------------
 // Incoming HTTP event routes served by the webhook gateway platform. Backed by
 // the same JSON store the CLI/dashboard use; per-route HMAC secrets are

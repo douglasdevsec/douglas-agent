@@ -11,24 +11,40 @@ import { cn } from '@/lib/utils'
 
 import type { WizardStepDefinition, WizardStepStatus } from './fixtures'
 
+export interface StepValidationResult {
+  error?: string
+  ok: boolean
+}
+
 interface ConnectionWizardProps {
   networkLabel: string
-  steps: readonly WizardStepDefinition[]
+  /**
+   * Real per-step validator, called instead of the mocked round trip below
+   * for steps this network has wired to a real backend. Omit to keep every
+   * step mocked (still the default for every network except Facebook's
+   * credential-entry steps — see index.tsx). Steps this function doesn't
+   * recognize should still resolve `{ ok: true }` so the rest of a
+   * network's flow (e.g. Facebook's still-mocked final "permissions" step)
+   * keeps working exactly as before.
+   */
+  onValidateStep?: (stepId: string, value: string) => Promise<StepValidationResult>
   onCancel: () => void
   onDone: () => void
+  steps: readonly WizardStepDefinition[]
 }
 
 // Step-by-step connector, content-only (no dialog/modal chrome of its own) so
 // it can be dropped into a Dialog today and into a chat bubble later without
-// a rewrite — see douglas/PLAN-CAPA-SOCIAL.md Etapa A2: "diseñado para
-// invocarse DESDE EL CHAT, no como wizard aislado".
+// a rewrite — designed to eventually be invocable from the chat, not just as
+// a standalone wizard.
 //
-// Validation is entirely mocked: it always succeeds after a short simulated
-// round trip. The real per-network step CONTENT (what to actually ask/check)
-// is deliberately not hardcoded here — it comes from `steps`, sourced in
-// fixtures.ts today and from the user's real Meta-connection walkthrough in a
-// later session.
-export function ConnectionWizard({ networkLabel, steps, onCancel, onDone }: ConnectionWizardProps) {
+// Validation is mocked by default (always succeeds after a short simulated
+// round trip) unless the caller passes `onValidateStep` for a real backend
+// call — see Facebook's credential-entry steps in index.tsx for the first
+// real one. The per-network step CONTENT (what to actually ask/check) is
+// deliberately not hardcoded here — it comes from `steps`, sourced in
+// fixtures.ts.
+export function ConnectionWizard({ networkLabel, onCancel, onDone, onValidateStep, steps }: ConnectionWizardProps) {
   const { t } = useI18n()
   const [stepIndex, setStepIndex] = useState(0)
   const [stepStatus, setStepStatus] = useState<WizardStepStatus>('current')
@@ -51,7 +67,22 @@ export function ConnectionWizard({ networkLabel, steps, onCancel, onDone }: Conn
     return 'pending'
   }
 
-  function validate() {
+  function advance() {
+    setValidating(false)
+    setStepStatus('done')
+
+    if (isLastStep) {
+      onDone()
+
+      return
+    }
+
+    setStepIndex(i => i + 1)
+    setStepStatus('current')
+    setInputValue('')
+  }
+
+  async function validate() {
     if (step.hasInput && !inputValue.trim()) {
       setErrorText(t.social.wizardFieldRequired)
       setStepStatus('error')
@@ -62,22 +93,25 @@ export function ConnectionWizard({ networkLabel, steps, onCancel, onDone }: Conn
     setErrorText(null)
     setValidating(true)
 
-    // Mocked round trip — Etapa B replaces this with a real call against
-    // douglas/plugins/social_auth's per-step validator.
-    window.setTimeout(() => {
-      setValidating(false)
-      setStepStatus('done')
+    if (onValidateStep) {
+      const result = await onValidateStep(step.id, inputValue)
 
-      if (isLastStep) {
-        onDone()
+      if (!result.ok) {
+        setValidating(false)
+        setErrorText(result.error ?? t.social.wizardFieldRequired)
+        setStepStatus('error')
 
         return
       }
 
-      setStepIndex(i => i + 1)
-      setStepStatus('current')
-      setInputValue('')
-    }, 400)
+      advance()
+
+      return
+    }
+
+    // Mocked round trip for every step this network hasn't wired to a real
+    // backend yet.
+    window.setTimeout(advance, 400)
   }
 
   return (

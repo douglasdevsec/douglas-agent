@@ -142,7 +142,7 @@ function summarizeErrorMessage(message: string, fallback: string) {
   return message.length > 180 ? fallback : message || fallback
 }
 
-function readableError(error: unknown, fallback: string): { message: string; detail?: string } {
+export function readableError(error: unknown, fallback: string): { message: string; detail?: string } {
   const raw = error instanceof Error ? error.message : typeof error === 'string' ? error : fallback
   const unwrapped = raw.match(/Error invoking remote method '[^']+': Error: (.+)$/)?.[1] ?? raw
   const cleaned = cleanErrorText(unwrapped)

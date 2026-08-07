@@ -1290,6 +1290,7 @@ from hermes_cli.web_models import (  # noqa: F401
     MemoryProviderSetupRequest,
     CustomEndpointUpdate,
     MessagingPlatformUpdate,
+    SocialPlatformUpdate,
     TelegramOnboardingStart,
     TelegramOnboardingApply,
     WhatsAppOnboardingStart,
@@ -9268,6 +9269,47 @@ async def update_messaging_platform(
         raise
     except Exception:
         _log.exception("PUT /api/messaging/platforms/%s failed", platform_id)
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+# ---------------------------------------------------------------------------
+# Social platforms (Facebook, YouTube, ...) -- deliberately separate from the
+# messaging platform routes above, not merged into PLATFORM_REGISTRY: these
+# are publish-on-demand credential sets with no running adapter/listener, so
+# they carry none of messaging's enabled/multiplex/gateway-liveness
+# machinery. See hermes_cli/social_platforms.py and douglas/PROGRESS.md
+# (2026-08-07 entry) for the product decision (every user brings their own
+# platform app credentials; nothing here is sent to any Douglas server).
+# ---------------------------------------------------------------------------
+
+from hermes_cli.social_platforms import (  # noqa: E402
+    get_social_platform_status,
+    update_social_platform_credentials,
+)
+
+
+@app.get("/api/social/platforms/{platform_id}")
+async def get_social_platform(platform_id: str):
+    status = get_social_platform_status(platform_id)
+    if status is None:
+        raise HTTPException(
+            status_code=404, detail=f"Unknown social platform: {platform_id}"
+        )
+    return status
+
+
+@app.put("/api/social/platforms/{platform_id}")
+async def update_social_platform(platform_id: str, body: SocialPlatformUpdate):
+    try:
+        return update_social_platform_credentials(
+            platform_id, body.env, body.clear_env
+        )
+    except ValueError as exc:
+        message = str(exc)
+        status_code = 404 if message.startswith("Unknown social platform") else 400
+        raise HTTPException(status_code=status_code, detail=message)
+    except Exception:
+        _log.exception("PUT /api/social/platforms/%s failed", platform_id)
         raise HTTPException(status_code=500, detail="Internal server error")
 
 

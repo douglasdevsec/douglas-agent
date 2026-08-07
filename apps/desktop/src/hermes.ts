@@ -57,6 +57,8 @@ import type {
   SkillHubSearchResponse,
   SkillHubSourcesResponse,
   SkillInfo,
+  SocialPlatformStatus,
+  SocialPlatformUpdate,
   StarmapGraph,
   StatusResponse,
   TerminalBackendsResponse,
@@ -209,6 +211,9 @@ export type {
   SkillHubSource,
   SkillHubSourcesResponse,
   SkillInfo,
+  SocialPlatformEnvField,
+  SocialPlatformStatus,
+  SocialPlatformUpdate,
   StaleAuxAssignment,
   StarmapGraph,
   StatusResponse,
@@ -1157,6 +1162,23 @@ export function updateMessagingPlatform(
 ): Promise<{ ok: boolean; platform: string }> {
   return window.hermesDesktop.api<{ ok: boolean; platform: string }>({
     path: `/api/messaging/platforms/${encodeURIComponent(platformId)}`,
+    method: 'PUT',
+    body
+  })
+}
+
+export function getSocialPlatform(platformId: string): Promise<SocialPlatformStatus> {
+  return window.hermesDesktop.api<SocialPlatformStatus>({
+    path: `/api/social/platforms/${encodeURIComponent(platformId)}`
+  })
+}
+
+export function updateSocialPlatform(
+  platformId: string,
+  body: SocialPlatformUpdate
+): Promise<SocialPlatformStatus> {
+  return window.hermesDesktop.api<SocialPlatformStatus>({
+    path: `/api/social/platforms/${encodeURIComponent(platformId)}`,
     method: 'PUT',
     body
   })

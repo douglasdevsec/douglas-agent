@@ -20,9 +20,18 @@ import { cn } from '@/lib/utils'
 // Single mocked decision point for "is this user premium". Every
 // premium-gated surface in the app should import isPremiumUser from here
 // rather than rolling its own check, so swapping in the real
-// billing/entitlement read later (Etapa B+) is a one-file change.
+// billing/entitlement read later (Fase E, see douglas/IMPLEMENTATION_PLAN.md)
+// is a one-file change.
+//
+// TEMPORARILY forced to `true` (2026-08-07) so the Social module's real
+// Facebook integration (Fase B, same plan doc) can be tested end to end
+// while the real Douglas Portal entitlement backend doesn't exist yet.
+// This is NOT the hardened check the user asked for — it's a plain local
+// flag, trivially flippable by anyone editing the built app. Must be
+// reverted to a real, server-verified entitlement read (a signed token,
+// not a boolean) before this ships to any user who isn't testing.
 export function isPremiumUser(): boolean {
-  return false
+  return true
 }
 
 interface PremiumGateProps {
