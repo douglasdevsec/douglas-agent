@@ -240,4 +240,40 @@ ocurrirá sola, automáticamente, la próxima vez que el usuario actualice y
 reabra la app) se degrada de forma segura ante contención de archivos, y
 se reintentará en el siguiente arranque sin la app abierta.
 
-**Commits**: pendiente al momento de escribir esta entrada.
+**Commits**: `fa9ab47fc`.
+
+---
+
+## 2026-08-06 — Regresión: el wordmark "DOUGLAS AGENT" + logo desaparecieron de la pantalla de nueva sesión
+
+**Problema**: el usuario reportó (con captura) que la pantalla de nueva
+sesión ya no mostraba el logo ni el wordmark "DOUGLAS AGENT" — solo el
+fondo y la fila de íconos sociales. Esto ya se había implementado antes
+(ver entrada del 2026-08-05, iniciativa 1) y funcionaba.
+
+**Causa raíz**: regresión introducida por el propio cambio de esta sesión
+que agregó el fondo del chat con imagen + tinte
+(`apps/desktop/src/components/assistant-ui/thread/list.tsx`). Las dos
+capas nuevas son `position: absolute` sin `z-index`. Por las reglas de
+apilamiento de CSS2.1, un elemento posicionado con `z-index: auto` se
+pinta *después* (encima) del contenido no-posicionado del mismo contexto
+de apilamiento, sin importar el orden en el DOM — así que el tinte
+translúcido terminaba pintándose arriba del componente `Intro` (logo +
+wordmark), que nunca tuvo `position` propio. El wordmark usa
+`text-emerald-600`/`emerald-400` sobre un tinte también verde oscuro, lo
+que además hacía el efecto casi imperceptible incluso donde sí se veía
+algo.
+
+**Qué se hizo**: `-z-10` en ambas capas de fondo, devolviéndolas a la
+etapa de apilamiento anterior al contenido en flujo normal — sin tocar el
+contenedor de contenido ni ningún otro componente.
+
+**Verificación**: 15/15 tests de `list.test.ts` pasan, `tsc` limpio. No
+fue posible tomar una captura real de la app (limitación conocida del
+panel de navegador de esta sesión, y la pantalla real requiere el IPC
+bridge completo de Electron, no solo el servidor de desarrollo del
+renderer). Se publicó una reproducción visual del mecanismo exacto
+(mismos colores del tema Douglas Noir, mismos assets reales) como
+artifact, mostrando antes/después del fix lado a lado.
+
+**Commit**: `49933f6fb`.
