@@ -35,7 +35,7 @@ source ~/.bashrc    # reload shell (or: source ~/.zshrc)
 douglas             # start chatting — identical to `hermes`
 ```
 
-Data lives under `~/.douglas` (or `%LOCALAPPDATA%\douglas` on Windows) by default, falling back to an existing `~/.hermes` install if you already have one — see [`douglas/README.md`](douglas/README.md) for the full resolution chain. `DOUGLAS_HOME`, `DOUGLAS_*` env vars, and `douglas-config.yaml`-shaped overrides all work as documented there.
+Data lives under `~/.douglas-agent` (or `%LOCALAPPDATA%\douglas-agent` on Windows) by default — never a sibling `~/.hermes`, even if you already have one, since that may belong to a completely unrelated, genuine install of the upstream Hermes Agent product this is forked from. See [`douglas/README.md`](douglas/README.md) for the full resolution chain. `DOUGLAS_HOME`, `DOUGLAS_*` env vars, and `douglas-config.yaml`-shaped overrides all work as documented there.
 
 For install troubleshooting (antivirus false positives, Windows-specific issues, Termux notes), see the [upstream Hermes README](https://github.com/NousResearch/hermes-agent#readme) — the installer is identical, so the same steps apply.
 

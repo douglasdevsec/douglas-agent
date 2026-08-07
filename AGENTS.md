@@ -1261,19 +1261,36 @@ Unused code that was never shipped was dead for a reason. Before wiring an
 unused module into a live code path, E2E test the real resolution chain
 with actual imports (not mocks) against a temp `HERMES_HOME`.
 
-### DO NOT persist a Windows environment variable under a name a separate product also reads
+### DO NOT persist a Windows environment variable at User scope for a fork/rebrand, period — not even one only your own code reads
 `[Environment]::SetEnvironmentVariable(..., "User")` writes at the
 per-*user* level, not per-application — every process the user runs sees
-the same value, including a completely unrelated app. `install.ps1` used
-to persist the resolved home under `HERMES_HOME` (the *original* Hermes
-Agent's own variable name, not one Douglas invented); any separate,
-genuine install of upstream Hermes Agent on the same machine silently
-inherited Douglas's directory the next time it opened a terminal. Persist
-under a name only *your own* fork's code looks for (`DOUGLAS_HOME` here),
-never the upstream project's own env var name, even to store a value your
-own installer computed. See `douglas/README.md`, "Cadena canonica de
-resolucion Douglas/Hermes", and `douglas/PROGRESS.md` (2026-08-05/06 entry)
-for the full incident and fix.
+the same value, including one you don't control. `install.ps1` first
+persisted the resolved home under `HERMES_HOME` (the *original* Hermes
+Agent's own variable name); fixed by switching to `DOUGLAS_HOME` on the
+reasoning that only this fork's own code looks for that name, so a
+genuine, unrelated install of upstream Hermes Agent could never be
+hijacked by it. **That reasoning was incomplete, not wrong** — it forgot
+that "only this fork's own code" includes EVERY build of this fork ever
+compiled, including old ones already installed under the OTHER brand's
+name (a Hermes-branded install running a stale copy of this same merged
+codebase, from before some later fix landed, still understands
+`DOUGLAS_HOME` with full priority). Any process launched on the account —
+including that old build, opened by double-click, no terminal involved —
+inherits a persisted User-scope var straight from the OS. Fixed (2026-08-06,
+ronda 4) by not persisting it automatically at all: `install.ps1` still
+sets it for the current session only, and the app still honors it at top
+priority if a user exports it manually, but the installer stopped writing
+it to the registry on every run — verified this doesn't degrade the
+`douglas` terminal command, since the default resolution is deterministic
+by design (brand-detected from the running exe's own location) and never
+needed the variable in the first place. **The generalizable lesson**: a
+name being unique to your own fork's code is not enough to make
+auto-persisting it at User scope safe, because "your own fork's code"
+includes every historical build of it that might still be running
+somewhere on the machine under a different name. See `douglas/README.md`,
+"Cadena canonica de resolucion Douglas/Hermes", and `douglas/PROGRESS.md`
+(2026-08-05/06 and 2026-08-06 "Ronda 4" entries) for the full incident and
+fix.
 
 ### Tests must not write to `~/.hermes/`
 The `_isolate_hermes_home` autouse fixture in `tests/conftest.py` redirects `HERMES_HOME` to a temp dir. Never hardcode `~/.hermes/` paths in tests.

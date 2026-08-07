@@ -35,7 +35,7 @@ source ~/.bashrc    # recargar la shell (o: source ~/.zshrc)
 douglas             # empezar a chatear — idéntico a `hermes`
 ```
 
-Los datos viven en `~/.douglas` (o `%LOCALAPPDATA%\douglas` en Windows) por defecto, con reserva a una instalación existente de `~/.hermes` si ya tienes una — ver [`douglas/README.md`](douglas/README.md) para la cadena de resolución completa. `DOUGLAS_HOME`, las variables `DOUGLAS_*`, y los overrides con forma `douglas-config.yaml` funcionan tal como se documenta ahí.
+Los datos viven en `~/.douglas-agent` (o `%LOCALAPPDATA%\douglas-agent` en Windows) por defecto — nunca en un `~/.hermes` vecino, aunque ya tengas uno, porque puede pertenecer a una instalación completamente ajena y genuina del Hermes Agent original del que este proyecto es un fork. Ver [`douglas/README.md`](douglas/README.md) para la cadena de resolución completa. `DOUGLAS_HOME`, las variables `DOUGLAS_*`, y los overrides con forma `douglas-config.yaml` funcionan tal como se documenta ahí.
 
 Para problemas de instalación (falsos positivos de antivirus, particularidades de Windows, notas de Termux), consulta el [README original de Hermes](https://github.com/NousResearch/hermes-agent#readme) — el instalador es idéntico, así que los mismos pasos aplican.
 

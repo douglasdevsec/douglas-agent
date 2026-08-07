@@ -1024,3 +1024,75 @@ compilación real en Windows que pidió el usuario (sección 8 del plan).
   `[System.Management.Automation.Language.Parser]::ParseFile` (sin
   ejecutarlo). `cargo check` compila limpio.
 - **Commit:** pendiente al momento de escribir esta entrada.
+
+## scripts/install.ps1, scripts/install.sh, hermes_bootstrap.py, apps/desktop/electron/main.ts, apps/bootstrap-installer/src-tauri/src/paths.rs (ronda 4 — el `Hermes.exe` de esta maquina seguia sin recibir ningun fix anterior)
+
+- **Que:** dos cambios combinados, encontrados al investigar por que ninguna
+  de las rondas anteriores alcanzaba para el `Hermes.exe` real ya instalado
+  en esta maquina (confirmado en commit `8f9cab5a57`, anterior incluso a la
+  ronda 1): (1) `install.ps1`'s `Set-PathVariable` ya NO persiste
+  `DOUGLAS_HOME` a nivel de usuario de Windows por defecto — sigue
+  seteandose a nivel de sesion (`$env:DOUGLAS_HOME`) para que el resto de
+  ese mismo `install.ps1` la use, y sigue siendo honrada con maxima
+  prioridad si el usuario la exporta manualmente, pero el instalador ya no
+  la escribe el mismo al registro en cada instalacion. (2) el directorio
+  douglas-branded por defecto se renombra de `"douglas"`/`".douglas"` a
+  `"douglas-agent"`/`".douglas-agent"` en las tres implementaciones
+  (`_default_brand_home_dir_name()` / `defaultBrandHomeDirName()` /
+  `default_brand_home_dir_name()`), con una migracion de una sola vez
+  (`_migrate_legacy_home_dir_name()` y equivalentes) que renombra en el
+  lugar un directorio `"douglas"` preexistente hacia el nuevo nombre, sin
+  tocar jamas un directorio hermes-named. `install.ps1` gana el mismo paso
+  de migracion al inicio del script, mas una limpieza de un `DOUGLAS_HOME`
+  persistido por una version anterior de este mismo instalador si su valor
+  coincide exactamente con el default pre-renombrado y ese directorio ya no
+  existe. `install.sh` (POSIX) recibe el mismo rename + migracion (nunca
+  persistio la variable a nivel de shell, asi que el cambio (1) no le
+  aplica).
+- **Por que:** se investigo el checkout real de `%LOCALAPPDATA%\hermes\hermes-agent`
+  en esta maquina (`git merge-base --is-ancestor ab3486ce0 HEAD` confirmo que
+  NO es ancestro — ese `Hermes.exe` corre codigo previo incluso a la ronda 1)
+  y se leyo su `hermes_bootstrap.py` tal como esta compilado ahi: hace alias
+  `DOUGLAS_HOME` → `HERMES_HOME` (con `DOUGLAS_HOME` ganando) y, sin ninguna
+  variable seteada, prefiere un `~/.douglas`/`%LOCALAPPDATA%\douglas`
+  existente. Como las variables de entorno de Windows son por-usuario, CUALQUIER
+  proceso nuevo en la cuenta (incluyendo ese `Hermes.exe` al abrirse con doble
+  clic, sin terminal de por medio) heredaba automaticamente un `DOUGLAS_HOME`
+  persistido — el cambio (1) elimina ese vector por completo. El cambio (2)
+  neutraliza el segundo vector (el fallback de ruta hardcodeada) para
+  cualquier build vieja/no cooperativa que ademas no tenga ninguna variable
+  seteada: al no encontrar nada en `%LOCALAPPDATA%\douglas` (renombrado),
+  esa build vieja simplemente crea su propio directorio nuevo ahi, aislado,
+  sin colisionar con los datos reales de Douglas (que ya viven en
+  `douglas-agent`). Verificado empiricamente contra la instalacion real: se
+  invoco `_resolve_default_douglas_home()` directamente mientras Douglas
+  Agent.exe estaba corriendo (locks reales sobre `gateway.lock`,
+  `auth.lock`, `state.db-wal`, etc.) — el rename fallo de forma segura
+  (`OSError` capturado), el directorio viejo quedo 100% intacto, nada se
+  corrompio. Se revirtio el archivo de prueba en ese checkout real
+  (`git checkout -- hermes_bootstrap.py`) sin dejar cambios sin commitear
+  ahi.
+- **Alternativa descartada:** mover el directorio de INSTALACION (donde vive
+  el `.exe`) a `C:\Program Files (x86)\Douglas Agent` — propuesta por el
+  usuario como consulta. Descartada porque ataca un vector equivocado: el
+  choque real es la variable de entorno global (leida por nombre, no por
+  ruta) mas el fallback de ruta hardcodeado del HOME/datos de usuario — no
+  la ubicacion del binario instalado, que ya son directorios distintos
+  (`%LOCALAPPDATA%\douglas` vs `%LOCALAPPDATA%\hermes`). Ademas, `Program
+  Files` tipicamente exige elevacion de administrador para escribir, lo cual
+  complicaria el auto-updater de una app per-usuario sin necesidad.
+- **Riesgo de merge:** bajo — funciones nuevas (migracion) y un rename de
+  string literal; ninguna rama de control existente cambia de forma.
+- **Tests:** `tests-douglas/test_compat_home.py` reescrito para el nuevo
+  nombre por defecto y gana pruebas de migracion dedicadas
+  (`test_legacy_douglas_dir_migrated_to_douglas_agent_posix`,
+  `test_windows_legacy_douglas_appdata_migrated`,
+  `test_douglas_agent_dir_exists_posix_skips_migration`) — 20/20 pasan.
+  `tests/test_install_ps1_ascii_only.py` sigue pasando. Sintaxis de
+  `install.ps1` validada con
+  `[System.Management.Automation.Language.Parser]::ParseFile`; `install.sh`
+  con `bash -n`. `npx tsc --noEmit` en `apps/desktop` (sandbox sincronizado)
+  limpio. `cargo check` en `apps/bootstrap-installer/src-tauri` compila
+  limpio (solo warnings preexistentes no relacionados). Verificacion en vivo
+  descrita arriba, contra la instalacion real con el proceso corriendo.
+- **Commit:** pendiente al momento de escribir esta entrada.

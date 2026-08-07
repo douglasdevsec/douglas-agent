@@ -177,3 +177,67 @@ entorno globales compartidas. `CAPABILITIES.md` (sección D10) actualizado:
 el `appId`/protocolo que tenía anotado estaba desactualizado (aún decía
 `com.nousresearch.hermes` / `hermes://`), y la línea de "TEMAS" no mencionaba
 el mecanismo de `chatBackgroundImage` ni los presets `douglas`/`douglas-noir`.
+
+---
+
+## 2026-08-06 — Ronda 4: fix definitivo para el `Hermes.exe` de esta máquina (sin tocar su código)
+
+**Problema real**: la limitación conocida de la ronda 3 (ver entrada
+anterior) seguía sin resolverse — el `Hermes.exe` real instalado en esta
+máquina bloqueaba el auto-updater de Douglas Agent cada vez que ambos
+estaban abiertos a la vez. Se investigó a fondo el checkout real de
+`%LOCALAPPDATA%\hermes\hermes-agent`: está en el commit `8f9cab5a57`
+(2026-08-03), confirmado **anterior a la ronda 1** vía
+`git merge-base --is-ancestor ab3486ce0 HEAD` (exit 1 = no es ancestro).
+Su `hermes_bootstrap.py`, leído tal como está compilado ahí, hace dos
+cosas: (1) alias `DOUGLAS_HOME` → `HERMES_HOME` (con `DOUGLAS_HOME`
+ganando) leído del entorno del proceso por nombre, sin importar la ruta;
+(2) sin ninguna variable seteada, prefiere un `~/.douglas`/
+`%LOCALAPPDATA%\douglas` existente — la ruta hardcodeada, literal.
+
+El usuario preguntó, como consulta, si cambiar la instalación por defecto
+de Douglas Agent a `C:\Program Files (x86)\Douglas Agent` (una ubicación
+distinta a la de Hermes) resolvería el problema. Investigado y descartado:
+ataca el vector equivocado (la ubicación del `.exe` instalado, no la
+variable de entorno global ni la ruta del HOME/datos de usuario, que ya
+son directorios distintos), y además `Program Files` normalmente exige
+elevación de administrador, lo que complicaría el auto-updater sin
+necesidad.
+
+**Qué se hizo** (2 cambios combinados, 100% del lado de Douglas, cero
+cambios al binario de Hermes.exe):
+1. `install.ps1` deja de persistir `DOUGLAS_HOME` a nivel de usuario de
+   Windows por defecto (seguía seteándose a nivel de sesión, y sigue
+   honrándose con máxima prioridad si el usuario la exporta manualmente).
+   Validado empíricamente ANTES de implementar: se corrió
+   `douglas.exe --version`/`doctor` con `DOUGLAS_HOME`/`HERMES_HOME`
+   completamente eliminadas del proceso — resolvió el directorio real
+   correctamente (config v33, 1 sesión, memorias, auth logueado), sin
+   necesitar la variable para nada.
+2. El directorio douglas-branded por defecto se renombra de
+   `"douglas"`/`".douglas"` a `"douglas-agent"`/`".douglas-agent"` en las
+   tres implementaciones, con migración de una sola vez (renombra en el
+   lugar un `"douglas"` preexistente, atómico, nunca toca nada
+   hermes-named). `install.ps1`/`install.sh` ganan el mismo paso de
+   migración, más limpieza de un `DOUGLAS_HOME` persistido por una versión
+   anterior de este mismo instalador.
+
+Con esto, ningún proceso ajeno en la máquina (viejo o nuevo) puede heredar
+ni adivinar el home de Douglas — ni por variable de entorno global ni por
+ruta conocida. Un `Hermes.exe` viejo, al no encontrar nada en
+`%LOCALAPPDATA%\douglas` (renombrado), simplemente crea su propio
+directorio nuevo ahí, aislado, sin colisionar con los datos reales de
+Douglas.
+
+**Verificación**: 20/20 tests de `tests-douglas/test_compat_home.py` (3
+pruebas de migración nuevas). `tsc`/`cargo check` limpios. Verificación
+en vivo, la más importante: se invocó la función de migración directamente
+contra el directorio real **mientras Douglas Agent.exe seguía corriendo**
+(locks reales sobre `gateway.lock`, `auth.lock`, `state.db-wal`) — el
+rename falló de forma segura (`OSError` capturado, sin crash), el
+directorio viejo quedó 100% intacto. Confirma que la migración real (que
+ocurrirá sola, automáticamente, la próxima vez que el usuario actualice y
+reabra la app) se degrada de forma segura ante contención de archivos, y
+se reintentará en el siguiente arranque sin la app abierta.
+
+**Commits**: pendiente al momento de escribir esta entrada.

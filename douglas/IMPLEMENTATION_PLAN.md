@@ -17,7 +17,7 @@ exactamente cuál es la pregunta abierta.
 
 ## Pendientes activos
 
-### [ ] Hermes.exe de esta máquina de desarrollo sigue sin la corrección de detección de marca
+### [x] Hermes.exe de esta máquina de desarrollo sigue sin la corrección de detección de marca
 
 El fix de detección de marca por ubicación del ejecutable (ver
 `PROGRESS.md`, entrada del 2026-08-05/06 sobre Douglas/Hermes) solo toma
@@ -41,6 +41,20 @@ No hay una solución puramente del lado de Douglas — el código que falla
 está en el otro binario. Ver `PROGRESS.md` para el análisis completo de por
 qué las variables de entorno globales no alcanzan para diferenciar dos
 instalaciones del mismo código fusionado.
+
+**Resuelto**: 2026-08-06 (ronda 4) — **ninguna de las 3 opciones (a/b/c)
+de arriba hizo falta**. Se encontró una cuarta vía, 100% del lado de
+Douglas, que no requiere ningún cambio al binario de `Hermes.exe`: dejar
+de persistir `DOUGLAS_HOME` a nivel de usuario de Windows (el vector real
+que ese `Hermes.exe` viejo heredaba automáticamente, sin terminal de por
+medio) + renombrar el home por defecto de Douglas fuera de
+`"douglas"`/`".douglas"` (la ruta hardcodeada que el fallback de esa build
+vieja reconoce), con migración automática de instalaciones reales
+existentes. Ver `PROGRESS.md`, entrada del 2026-08-06 "Ronda 4", para el
+análisis completo (incluye por qué mover el directorio de *instalación*
+del `.exe` a `Program Files` — consultado por el usuario — no habría
+alcanzado por sí solo) y la verificación en vivo contra la instalación
+real.
 
 ### [ ] Evaluar el merge con upstream (Hermes Agent v2026.8.3 / v0.20.0)
 

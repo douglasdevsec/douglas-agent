@@ -30,6 +30,12 @@
 //! `resolveHermesHome()` in `apps/desktop/electron/main.ts` (Electron) —
 //! see `douglas/README.md`, section "Cadena canonica de resolucion
 //! Douglas/Hermes", for the single source of truth all three implement.
+//!
+//! The douglas-branded leaf is named `"douglas-agent"`/`".douglas-agent"`
+//! (renamed from the bare `"douglas"`/`".douglas"` on 2026-08-06 — see
+//! `douglas/PROGRESS.md`, ronda 4) so a stale, unpatched build of this same
+//! merged codebase can no longer find it via its own hardcoded "prefer an
+//! existing douglas-named install" fallback.
 
 use std::path::{Path, PathBuf};
 #[cfg(target_os = "macos")]
@@ -56,18 +62,47 @@ pub fn hermes_home() -> PathBuf {
     #[cfg(target_os = "windows")]
     {
         if let Some(local_app_data) = dirs::data_local_dir() {
-            return local_app_data.join(default_brand_home_dir_name(&local_app_data));
+            let home = local_app_data.join(default_brand_home_dir_name(&local_app_data));
+            migrate_legacy_home_dir_name(&home);
+            return home;
         }
     }
 
     // macOS + Linux + fallback.
     if let Some(home) = dirs::home_dir() {
-        return home.join(".douglas");
+        let home = home.join(".douglas-agent");
+        migrate_legacy_home_dir_name(&home);
+        return home;
     }
 
     // Last resort — current dir, almost certainly wrong but at least
     // doesn't panic.
-    PathBuf::from(".douglas")
+    let home = PathBuf::from(".douglas-agent");
+    migrate_legacy_home_dir_name(&home);
+    home
+}
+
+/// One-time rename of a pre-2026-08-06 douglas-named home directory into
+/// the new `"douglas-agent"`/`".douglas-agent"` name (see
+/// `douglas/PROGRESS.md`, ronda 4, and
+/// `hermes_bootstrap.py::_migrate_legacy_home_dir_name()` for the full
+/// reasoning — mirrored here). Only ever considers a douglas-named
+/// sibling, never a hermes-named one: a douglas-named directory can only
+/// have been created by this fork's own code, so adopting it is always
+/// safe. Idempotent and non-fatal.
+fn migrate_legacy_home_dir_name(new_home: &Path) {
+    if new_home.exists() {
+        return;
+    }
+    let legacy_name = match new_home.file_name().and_then(|n| n.to_str()) {
+        Some("douglas-agent") => "douglas",
+        Some(".douglas-agent") => ".douglas",
+        _ => return,
+    };
+    let legacy_home = new_home.with_file_name(legacy_name);
+    if legacy_home.is_dir() {
+        let _ = std::fs::rename(&legacy_home, new_home);
+    }
 }
 
 /// Which brand's directory THIS specific installed copy should default to,
@@ -79,15 +114,16 @@ pub fn hermes_home() -> PathBuf {
 /// merged codebase still lives on disk under a hermes-named directory, and
 /// without this check would default itself into the douglas-named one
 /// instead, colliding with a real Douglas Agent install's venv. Falls back
-/// to `"douglas"` (the current product) for anything not recognizably under
-/// a hermes-named install root, e.g. running unpackaged during development.
+/// to `"douglas-agent"` (the current product) for anything not recognizably
+/// under a hermes-named install root, e.g. running unpackaged during
+/// development.
 #[cfg(target_os = "windows")]
 fn default_brand_home_dir_name(local_app_data: &Path) -> &'static str {
     let hermes_root = local_app_data.join("hermes");
 
     match std::env::current_exe() {
         Ok(exe) if exe.starts_with(&hermes_root) => "hermes",
-        _ => "douglas",
+        _ => "douglas-agent",
     }
 }
 

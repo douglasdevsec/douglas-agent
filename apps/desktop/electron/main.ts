@@ -626,10 +626,46 @@ function resolveHermesHome() {
   }
 
   if (IS_WINDOWS && process.env.LOCALAPPDATA) {
-    return path.join(process.env.LOCALAPPDATA, defaultBrandHomeDirName())
+    const home = path.join(process.env.LOCALAPPDATA, defaultBrandHomeDirName())
+    migrateLegacyHomeDirName(home)
+    return home
   }
 
-  return path.join(app.getPath('home'), '.douglas')
+  const home = path.join(app.getPath('home'), '.douglas-agent')
+  migrateLegacyHomeDirName(home)
+  return home
+}
+
+// One-time rename of a pre-2026-08-06 douglas-named home directory into the
+// new "douglas-agent"/".douglas-agent" name (see douglas/PROGRESS.md, ronda
+// 4, and hermes_bootstrap.py::_migrate_legacy_home_dir_name() for the full
+// reasoning — mirrored here). Only ever considers a douglas-named sibling,
+// never a hermes-named one: a douglas-named directory can only have been
+// created by this fork's own code, so adopting it is always safe.
+// Idempotent and non-fatal.
+function migrateLegacyHomeDirName(newHome: string) {
+  if (fs.existsSync(newHome)) {
+    return
+  }
+  const base = path.basename(newHome)
+  let legacyName: string | null = null
+  if (base === 'douglas-agent') {
+    legacyName = 'douglas'
+  } else if (base === '.douglas-agent') {
+    legacyName = '.douglas'
+  }
+  if (!legacyName) {
+    return
+  }
+  const legacyHome = path.join(path.dirname(newHome), legacyName)
+  try {
+    if (fs.statSync(legacyHome).isDirectory()) {
+      fs.renameSync(legacyHome, newHome)
+    }
+  } catch {
+    // Doesn't exist, or a concurrent process/permissions quirk — the
+    // caller falls through to treating this as a fresh install.
+  }
 }
 
 // Which brand's directory THIS specific installed copy should default to,
@@ -642,18 +678,18 @@ function resolveHermesHome() {
 // douglas/CORE_PATCHES.md) still lives under %LOCALAPPDATA%\hermes on disk,
 // and without this check it would default itself into %LOCALAPPDATA%\douglas
 // instead — the exact venv collision this whole chain exists to prevent.
-// Falls back to 'douglas' (the current product) for anything not
+// Falls back to 'douglas-agent' (the current product) for anything not
 // recognizably under a hermes-named install root, e.g. running unpackaged
 // from source in dev.
 function defaultBrandHomeDirName() {
   if (!IS_WINDOWS || !process.env.LOCALAPPDATA) {
-    return 'douglas'
+    return 'douglas-agent'
   }
 
   const exePath = app.getPath('exe').toLowerCase()
   const hermesRoot = path.join(process.env.LOCALAPPDATA, 'hermes').toLowerCase()
 
-  return exePath === hermesRoot || exePath.startsWith(hermesRoot + path.sep) ? 'hermes' : 'douglas'
+  return exePath === hermesRoot || exePath.startsWith(hermesRoot + path.sep) ? 'hermes' : 'douglas-agent'
 }
 
 const HERMES_HOME = resolveHermesHome()

@@ -31,22 +31,25 @@ param(
     [string]$Tag = "",
     # Douglas/Hermes compatibility chain (see douglas/README.md, "Cadena
     # canonica de resolucion Douglas/Hermes"): DOUGLAS_HOME > HERMES_HOME >
-    # default to %LOCALAPPDATA%\douglas, UNCONDITIONALLY -- never an existing
-    # %LOCALAPPDATA%\hermes, even if one exists. An existing hermes-named
-    # directory is not reliable evidence of a prior Douglas Agent install
-    # under its old name: it may equally well belong to a completely
-    # unrelated, foreign install of the upstream Hermes Agent product this
-    # app is forked from (the two are common to find side by side), and
-    # silently adopting it would mix Douglas's data into that install -- or
-    # point both apps' backends at the same directory, causing them to
-    # collide on file locks. Mirrors
+    # default to %LOCALAPPDATA%\douglas-agent, UNCONDITIONALLY -- never an
+    # existing %LOCALAPPDATA%\hermes, even if one exists. An existing
+    # hermes-named directory is not reliable evidence of a prior Douglas
+    # Agent install under its old name: it may equally well belong to a
+    # completely unrelated, foreign install of the upstream Hermes Agent
+    # product this app is forked from (the two are common to find side by
+    # side), and silently adopting it would mix Douglas's data into that
+    # install -- or point both apps' backends at the same directory, causing
+    # them to collide on file locks. The douglas-branded leaf is named
+    # "douglas-agent", not the bare "douglas" used before 2026-08-06 (see
+    # douglas/PROGRESS.md, ronda 4) -- Set-PathVariable below migrates an
+    # existing "douglas"-named install in place, once. Mirrors
     # hermes_bootstrap.py::_resolve_default_douglas_home() (Python),
     # apps\desktop\electron\main.ts::resolveHermesHome() (Electron), and
     # apps\bootstrap-installer\src-tauri\src\paths.rs::hermes_home() (Tauri).
     [string]$HermesHome = $(
         if ($env:DOUGLAS_HOME) { $env:DOUGLAS_HOME }
         elseif ($env:HERMES_HOME) { $env:HERMES_HOME }
-        else { "$env:LOCALAPPDATA\douglas" }
+        else { "$env:LOCALAPPDATA\douglas-agent" }
     ),
     [string]$InstallDir = "$HermesHome\hermes-agent",
 
@@ -84,6 +87,26 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+# One-time rename of a pre-2026-08-06 douglas-named home directory into the
+# new "douglas-agent" name (see douglas/PROGRESS.md, ronda 4, and
+# hermes_bootstrap.py::_migrate_legacy_home_dir_name() for the full
+# reasoning -- mirrored here). Only fires when $HermesHome came from the
+# computed default (no explicit DOUGLAS_HOME/HERMES_HOME override) and only
+# ever considers a douglas-named sibling, never a hermes-named one: a
+# douglas-named directory can only have been created by this fork's own
+# code, so adopting it is always safe. Idempotent and non-fatal.
+if (-not $env:DOUGLAS_HOME -and -not $env:HERMES_HOME -and -not (Test-Path $HermesHome)) {
+    $legacyHome = Join-Path (Split-Path $HermesHome -Parent) "douglas"
+    if (Test-Path $legacyHome -PathType Container) {
+        try {
+            Move-Item -Path $legacyHome -Destination $HermesHome -Force
+            Write-Host "[*] Migrated existing install: $legacyHome -> $HermesHome" -ForegroundColor Green
+        } catch {
+            # Non-fatal -- falls through to treating this as a fresh install.
+        }
+    }
+}
 
 # Suppress Invoke-WebRequest's per-chunk progress bar.  Windows PowerShell
 # 5.1's progress UI repaints synchronously on every received byte, which
@@ -2319,23 +2342,27 @@ function Set-PathVariable {
         Write-Info "PATH already configured"
     }
     
-    # Persist DOUGLAS_HOME (NOT HERMES_HOME) so a plain terminal opened later
-    # finds config/data without needing this script to run again. HERMES_HOME
-    # is the ORIGINAL Hermes Agent's own variable -- persisting it here at
-    # User scope would silently redirect any separate, genuine install of the
-    # upstream Hermes Agent product (which this app is forked from, and which
-    # many users will already have) into reading/writing Douglas's directory
-    # the next time they open a terminal, since Windows environment variables
-    # are per-user, not per-application. DOUGLAS_HOME has no such collision:
-    # it's a name only this fork's own code (hermes_bootstrap.py's
-    # normalize_douglas_env(), main.ts's resolveHermesHome(), paths.rs's
-    # hermes_home()) ever looks for, and it already wins over HERMES_HOME at
-    # the highest priority tier of that chain.
-    $currentDouglasHome = [Environment]::GetEnvironmentVariable("DOUGLAS_HOME", "User")
-    if (-not $currentDouglasHome -or $currentDouglasHome -ne $HermesHome) {
-        [Environment]::SetEnvironmentVariable("DOUGLAS_HOME", $HermesHome, "User")
-        Write-Success "Set DOUGLAS_HOME=$HermesHome"
-    }
+    # DOUGLAS_HOME is NOT auto-persisted at User scope by this installer
+    # (changed 2026-08-06, see douglas/PROGRESS.md ronda 4). It once was, on
+    # the reasoning that -- unlike HERMES_HOME, the ORIGINAL Hermes Agent's
+    # own variable -- DOUGLAS_HOME was a name only this fork's own code
+    # looked for, so no other product could be shadowed by it. That
+    # reasoning missed a real case: a Hermes-branded install running an
+    # OLDER build of this SAME merged codebase (e.g. a Hermes.exe compiled
+    # before some fix in this fork landed) still contains the DOUGLAS_HOME
+    # alias/priority logic too, and Windows environment variables are
+    # per-user, not per-application -- ANY process launched on this account
+    # (including that Hermes.exe, opened by double-click, no terminal
+    # involved) inherits a User-scope DOUGLAS_HOME automatically from the
+    # OS. Persisting it made every fresh Douglas Agent install a future
+    # trap for any Hermes-branded copy of this codebase already on the
+    # machine. It's no longer needed for the app to find itself correctly
+    # (see hermes_bootstrap.py::_resolve_default_douglas_home() -- the
+    # fixed, brand-detected default is reliable without an env var), so we
+    # simply don't set it. A user who wants to point Douglas Agent at a
+    # non-default HERMES_HOME can still export DOUGLAS_HOME themselves --
+    # this script and the app both honor it at the highest priority tier
+    # when present, we just stop auto-writing it on every install.
     $env:DOUGLAS_HOME = $HermesHome
     $env:HERMES_HOME = $HermesHome
 
@@ -2349,9 +2376,25 @@ function Set-PathVariable {
     $legacyHermesHome = [Environment]::GetEnvironmentVariable("HERMES_HOME", "User")
     if ($legacyHermesHome -and $legacyHermesHome -like "*\douglas*") {
         [Environment]::SetEnvironmentVariable("HERMES_HOME", $null, "User")
-        Write-Success "Cleared legacy HERMES_HOME=$legacyHermesHome (was shadowing other Hermes-family apps; use DOUGLAS_HOME=$HermesHome instead)"
+        Write-Success "Cleared legacy HERMES_HOME=$legacyHermesHome (was shadowing other Hermes-family apps on this machine)"
     }
-    
+
+    # Cleanup: an earlier version of THIS installer (before 2026-08-06) did
+    # auto-persist DOUGLAS_HOME at User scope, pointing at the pre-rename
+    # "...\douglas" default. If that exact leftover value is still there and
+    # the directory it points to no longer exists (because the migration at
+    # the top of this script just renamed it to "...\douglas-agent"), clear
+    # it -- otherwise it would permanently shadow the fixed default and stop
+    # the same migration from ever running again for this install, since
+    # every runtime skips its own default-resolution (and migration) step
+    # whenever an explicit DOUGLAS_HOME is present.
+    $currentDouglasHome = [Environment]::GetEnvironmentVariable("DOUGLAS_HOME", "User")
+    $preRenameDefault = Join-Path $env:LOCALAPPDATA "douglas"
+    if ($currentDouglasHome -and $currentDouglasHome -eq $preRenameDefault -and -not (Test-Path $preRenameDefault)) {
+        [Environment]::SetEnvironmentVariable("DOUGLAS_HOME", $null, "User")
+        Write-Success "Cleared stale DOUGLAS_HOME=$currentDouglasHome (pre-rename default; data now lives at $HermesHome)"
+    }
+
     # Update current session
     $env:Path = "$hermesBin;$env:Path"
     

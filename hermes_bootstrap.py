@@ -70,6 +70,15 @@ def _resolve_default_douglas_home() -> Path:
     Douglas's data into that install — or point both apps' backends at
     the same directory, causing them to collide on file locks.
 
+    The douglas-branded leaf is named "douglas-agent" (".douglas-agent"
+    on POSIX), not the bare "douglas" used before 2026-08-06 — see
+    douglas/PROGRESS.md, ronda 4. A stale, unpatched build of this same
+    merged codebase (e.g. a Hermes.exe compiled before this fix existed)
+    still contains ITS OWN hardcoded "prefer an existing douglas-named
+    install" fallback, which reads the literal path string, not this
+    function. Renaming the directory this function returns is what
+    starves that fallback — no code update to the stale build required.
+
     Mirrors apps/desktop/electron/main.ts::resolveHermesHome() and
     apps/bootstrap-installer/src-tauri/src/paths.rs::hermes_home() — see
     douglas/README.md, section "Cadena canonica de resolucion
@@ -83,9 +92,52 @@ def _resolve_default_douglas_home() -> Path:
     if _IS_WINDOWS:
         local_appdata = os.environ.get("LOCALAPPDATA", "").strip()
         if local_appdata:
-            return Path(local_appdata) / _default_brand_home_dir_name()
-        return Path.home() / ".douglas"
-    return Path.home() / ".douglas"
+            home = Path(local_appdata) / _default_brand_home_dir_name()
+            _migrate_legacy_home_dir_name(home)
+            return home
+        home = Path.home() / ".douglas-agent"
+        _migrate_legacy_home_dir_name(home)
+        return home
+    home = Path.home() / ".douglas-agent"
+    _migrate_legacy_home_dir_name(home)
+    return home
+
+
+def _migrate_legacy_home_dir_name(new_home: Path) -> None:
+    """One-time rename of a pre-2026-08-06 douglas-named home directory.
+
+    The douglas-branded leaf name changed from "douglas"/".douglas" to
+    "douglas-agent"/".douglas-agent" (see docstring on
+    _resolve_default_douglas_home). Existing real installs must not look
+    like a fresh, empty install after this change — rename the old
+    directory into the new name in place, once.
+
+    Only ever considers a douglas-named sibling, never a hermes-named
+    one: a douglas-named directory can only have been created by this
+    fork's own code, so adopting it is always safe. A hermes-named
+    directory may belong to a completely unrelated, genuine upstream
+    Hermes Agent install and must never be touched here (see the
+    now-removed pre-2026-08-05 "adopt an existing hermes install"
+    fallback in douglas/CORE_PATCHES.md for why).
+
+    Idempotent and non-fatal: a no-op once the new name exists, and any
+    OSError (e.g. a concurrent process, a permissions quirk) is swallowed
+    since the caller falls through to treating this as a fresh install.
+    """
+    if new_home.exists():
+        return
+    if new_home.name == "douglas-agent":
+        legacy_name = "douglas"
+    elif new_home.name == ".douglas-agent":
+        legacy_name = ".douglas"
+    else:
+        return
+    legacy_home = new_home.with_name(legacy_name)
+    if legacy_home.is_dir():
+        try:
+            legacy_home.rename(new_home)
+        except OSError:
+            pass
 
 
 def _default_brand_home_dir_name() -> str:
@@ -98,13 +150,13 @@ def _default_brand_home_dir_name() -> str:
     this merged codebase still lives on disk under a hermes-named
     directory, and without this check would default itself into the
     douglas-named one instead, colliding with a real Douglas Agent
-    install's venv. Falls back to "douglas" (the current product) for
-    anything not recognizably under a hermes-named install root, e.g.
+    install's venv. Falls back to "douglas-agent" (the current product)
+    for anything not recognizably under a hermes-named install root, e.g.
     running unpackaged from a dev checkout.
     """
     local_appdata = os.environ.get("LOCALAPPDATA", "").strip()
     if not local_appdata:
-        return "douglas"
+        return "douglas-agent"
 
     hermes_root = (Path(local_appdata) / "hermes").resolve()
     this_file = Path(__file__).resolve()
@@ -112,7 +164,7 @@ def _default_brand_home_dir_name() -> str:
     try:
         this_file.relative_to(hermes_root)
     except ValueError:
-        return "douglas"
+        return "douglas-agent"
     return "hermes"
 
 
@@ -145,10 +197,11 @@ def normalize_douglas_env() -> None:
             os.environ["HERMES_" + key[len("DOUGLAS_"):]] = value
 
     # 2. If HERMES_HOME is still unset after aliasing (neither DOUGLAS_HOME
-    #    nor HERMES_HOME was in the environment), resolve the default
-    #    directory: prefer an existing ~/.douglas install, then an
-    #    existing ~/.hermes install (don't orphan prior Hermes users),
-    #    else create ~/.douglas for a brand-new install.
+    #    nor HERMES_HOME was in the environment), resolve the fixed default
+    #    directory (~/.douglas-agent, brand-detected) -- see
+    #    _resolve_default_douglas_home() for the full chain, including the
+    #    one-time migration of a pre-2026-08-06 ~/.douglas install. Never a
+    #    sibling ~/.hermes, even if one exists on disk.
     if not os.environ.get("HERMES_HOME", "").strip():
         os.environ["HERMES_HOME"] = str(_resolve_default_douglas_home())
 

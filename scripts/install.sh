@@ -47,23 +47,33 @@ REPO_URL_SSH="git@github.com:douglasdevsec/douglas-agent.git"
 REPO_URL_HTTPS="https://github.com/douglasdevsec/douglas-agent.git"
 # Douglas/Hermes compatibility chain (see douglas/README.md, "Cadena
 # canonica de resolucion Douglas/Hermes"): DOUGLAS_HOME > HERMES_HOME >
-# default to ~/.douglas, UNCONDITIONALLY — never an existing ~/.hermes,
-# even if one exists. An existing hermes-named directory is not reliable
-# evidence of a prior Douglas Agent install under its old name: it may
-# equally well belong to a completely unrelated, foreign install of the
+# default to ~/.douglas-agent, UNCONDITIONALLY — never an existing
+# ~/.hermes, even if one exists. An existing hermes-named directory is not
+# reliable evidence of a prior Douglas Agent install under its old name: it
+# may equally well belong to a completely unrelated, foreign install of the
 # upstream Hermes Agent product this app is forked from (the two are
 # common to find side by side), and silently adopting it would mix
 # Douglas's data into that install — or point both apps' backends at the
-# same directory, causing them to collide on file locks. Mirrors
-# hermes_bootstrap.py's _resolve_default_douglas_home(), main.ts's
-# resolveHermesHome(), and paths.rs's hermes_home() — install.ps1 carries
-# the identical chain (see its param() block for $HermesHome).
+# same directory, causing them to collide on file locks. The douglas-
+# branded leaf is named ".douglas-agent", not the bare ".douglas" used
+# before 2026-08-06 (see douglas/PROGRESS.md, ronda 4) — migrated in place
+# below, once. Mirrors hermes_bootstrap.py's _resolve_default_douglas_home(),
+# main.ts's resolveHermesHome(), and paths.rs's hermes_home() — install.ps1
+# carries the identical chain (see its param() block for $HermesHome).
 if [ -n "${DOUGLAS_HOME:-}" ]; then
     HERMES_HOME="$DOUGLAS_HOME"
 elif [ -n "${HERMES_HOME:-}" ]; then
     HERMES_HOME="$HERMES_HOME"
 else
-    HERMES_HOME="$HOME/.douglas"
+    HERMES_HOME="$HOME/.douglas-agent"
+    # One-time migration: only fires for the computed default (never an
+    # explicit override above), and only ever considers a douglas-named
+    # sibling, never a hermes-named one — a douglas-named directory can
+    # only have been created by this fork's own code, so adopting it is
+    # always safe. Idempotent and non-fatal.
+    if [ ! -e "$HERMES_HOME" ] && [ -d "$HOME/.douglas" ]; then
+        mv "$HOME/.douglas" "$HERMES_HOME" 2>/dev/null || true
+    fi
 fi
 # INSTALL_DIR is resolved AFTER arg parsing and OS detection so we can pick an
 # FHS-style layout for root installs.  Track whether the user gave us an

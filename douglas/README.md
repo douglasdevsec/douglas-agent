@@ -705,12 +705,58 @@ tocarlos.
 |---|---|---|
 | 1 | `%DOUGLAS_HOME%` si está seteada | `$DOUGLAS_HOME` si está seteada |
 | 2 | `%HERMES_HOME%` si está seteada | `$HERMES_HOME` si está seteada |
-| 3 | `%LOCALAPPDATA%\douglas` — SIEMPRE, sin condición | `~/.douglas` — SIEMPRE, sin condición |
+| 3 | `%LOCALAPPDATA%\douglas-agent` (o `\hermes` si se detecta esa marca — ver más abajo) — SIEMPRE, sin condición | `~/.douglas-agent` — SIEMPRE, sin condición |
 
 El paso 3 solo se evalúa cuando ni `DOUGLAS_HOME` ni `HERMES_HOME` están
 seteadas — si cualquiera de las dos lo está, gana y no se mira el disco.
 Nunca se escanea ni se adopta automáticamente un `%LOCALAPPDATA%\hermes` /
 `~/.hermes` existente, sin importar si existe o no.
+
+**Por qué `"douglas-agent"`/`".douglas-agent"` y no la `"douglas"`/`".douglas"`
+bare usada antes del 2026-08-06** (ronda 4 — ver `PROGRESS.md`): una
+instalación `Hermes.exe` en la misma máquina, corriendo una build vieja de
+este mismo código fusionado (anterior incluso a la eliminación del
+fallback de la sección de arriba), trae su propio fallback hardcodeado que
+busca literalmente un `~/.douglas`/`%LOCALAPPDATA%\douglas` existente y lo
+adopta si lo encuentra — sin importar ninguna variable de entorno. Ese
+fallback lee la ruta por *nombre literal*, no a través de este código
+actualizado, así que ningún cambio de lógica en este archivo puede
+neutralizarlo — solo dejar de usar el nombre que ese fallback reconoce.
+Renombrar el directorio por defecto starves ese fallback: al no encontrar
+nada en `%LOCALAPPDATA%\douglas`, esa build vieja simplemente crea su
+propio directorio nuevo y vacío ahí, aislado, sin colisionar con los datos
+reales de Douglas.
+
+**Migración de una instalación real preexistente**: si el directorio nuevo
+(`douglas-agent`) no existe pero el viejo (`douglas`, sin sufijo) sí, se
+renombra en el lugar, una sola vez, la primera vez que se resuelve el
+default (nunca cuando `DOUGLAS_HOME`/`HERMES_HOME` está seteada
+explícitamente). Es una operación atómica (`rename`, no copiar+borrar) y
+no destructiva: si falla (p. ej. el directorio está en uso por una
+instancia de Douglas Agent ya corriendo — un `rename` de Windows falla si
+algún archivo dentro está abierto), el directorio viejo queda 100% intacto
+y se reintenta automáticamente en el siguiente arranque sin contención.
+Verificado en vivo contra la instalación real de esta máquina mientras
+Douglas Agent.exe seguía corriendo: el rename falló de forma segura,
+capturado como `OSError`, sin corromper nada. Solo se considera un
+directorio `douglas` — nunca uno `hermes`, que puede pertenecer a una
+instalación completamente ajena.
+
+**Detección de marca por ubicación física del ejecutable** (relevante para
+el paso 3 en Windows): cuando ninguna variable de entorno está seteada, el
+directorio por defecto no es incondicionalmente `douglas-agent` — se
+deriva de dónde vive físicamente el ejecutable/checkout que está
+corriendo (`app.getPath('exe')` en Electron, `Path(__file__)` en Python,
+`std::env::current_exe()` en Rust), comparado contra
+`%LOCALAPPDATA%\hermes`. Una instalación Hermes-branded migrada para
+correr este mismo código fusionado sigue viviendo en disco bajo un
+directorio hermes-named, y sin esta comprobación se autoasignaría el
+directorio douglas-branded en su lugar — la colisión de `venv` exacta que
+esta cadena entera existe para prevenir. Cae a `douglas-agent` para
+cualquier cosa no reconociblemente ubicada bajo una raíz hermes-named
+(p. ej. un checkout de desarrollo sin empaquetar). Ver
+`_default_brand_home_dir_name()` / `defaultBrandHomeDirName()` /
+`default_brand_home_dir_name()` en las tres implementaciones.
 
 **Por qué no hay fallback a un directorio `hermes` existente** (a
 diferencia de versiones anteriores de esta tabla): la existencia de ese
@@ -747,24 +793,40 @@ cualquier variable de entorno y siempre gana cuando está activo. Esta
 cadena solo determina el valor *por defecto* del proceso — nunca compite
 con un override de perfil activo.
 
-**Por qué `install.ps1` persiste `DOUGLAS_HOME`, nunca `HERMES_HOME`, en el
-entorno de usuario de Windows**: `Set-PathVariable` (en `scripts/install.ps1`)
-escribe la variable resuelta con `[Environment]::SetEnvironmentVariable(...,
-"User")` para que una terminal nueva encuentre el install sin volver a
-correr el instalador. Una versión anterior de esta función escribía
-`HERMES_HOME` — que es la variable *propia y original* del Hermes Agent
-del que este proyecto es un fork, no un nombre inventado por Douglas. Las
-variables de entorno de Windows son por-usuario, no por-aplicación: una
-instalación genuina y completamente ajena de Hermes Agent, que lee su
-propia `HERMES_HOME` sin saber que Douglas existe, terminaba heredando el
-directorio de Douglas apenas se abría una terminal nueva — el mismo tipo
-de colisión de `venv` que motivó el cambio de la sección anterior, pero
-por una vía distinta (una variable persistida, no un fallback en tiempo
-de arranque). `DOUGLAS_HOME` no tiene ese problema: solo el propio código
-de este fork la busca (con la prioridad más alta de la tabla de arriba),
-así que persistirla nunca puede secuestrar una instalación de Hermes
-ajena. `Set-PathVariable` también migra automáticamente una `HERMES_HOME`
-heredada de una versión anterior del instalador: si su valor apunta a una
-carpeta `...\douglas...` (evidencia de que la escribió este mismo
-instalador, nunca algo que un usuario de Hermes hubiera seteado a mano),
-la borra.
+**Por qué `install.ps1` YA NO persiste `DOUGLAS_HOME` en el entorno de
+usuario de Windows** (cambiado 2026-08-06, ronda 4 — ver `PROGRESS.md`):
+`Set-PathVariable` (en `scripts/install.ps1`) solía escribir la variable
+resuelta con `[Environment]::SetEnvironmentVariable(..., "User")` para que
+una terminal nueva encontrara el install sin volver a correr el
+instalador. Antes de eso escribía `HERMES_HOME` — la variable *propia y
+original* del Hermes Agent del que este proyecto es un fork, no un nombre
+inventado por Douglas — corregido a `DOUGLAS_HOME` con el razonamiento de
+que solo el propio código de este fork la busca, así que persistirla
+nunca podría secuestrar una instalación de Hermes ajena.
+
+Ese razonamiento pasó por alto un caso real: una instalación Hermes-branded
+corriendo una build MÁS VIEJA de este mismo código fusionado (no una
+instalación genuina y ajena del Hermes Agent original) también entiende
+`DOUGLAS_HOME` — con la misma prioridad que Douglas Agent.exe, porque es
+literalmente el mismo código, solo una versión anterior. Y como las
+variables de entorno de Windows son por-usuario, no por-aplicación,
+CUALQUIER proceso nuevo lanzado en esa cuenta — incluyendo ese `Hermes.exe`
+al abrirse con doble clic, sin ninguna terminal de por medio — heredaba
+automáticamente un `DOUGLAS_HOME` persistido directamente del sistema
+operativo. Persistirla convertía cada instalación nueva de Douglas Agent
+en una trampa futura para cualquier copia Hermes-branded de este código ya
+presente en la máquina. Verificado empíricamente que dejar de persistirla
+no degrada nada: se corrió `douglas.exe --version`/`doctor` con
+`DOUGLAS_HOME`/`HERMES_HOME` completamente eliminadas del proceso y
+resolvió el directorio real correctamente sin la variable, porque el paso
+3 de la tabla de arriba ya es determinístico por diseño.
+
+`DOUGLAS_HOME` sigue seteada a nivel de *sesión* (para que el resto de esa
+misma corrida de `install.ps1` la use) y sigue honrándose con la máxima
+prioridad de la tabla si el usuario la exporta manualmente — solo se dejó
+de escribir automáticamente al registro en cada instalación. `Set-PathVariable`
+también limpia, una sola vez, cualquier `HERMES_HOME`/`DOUGLAS_HOME`
+heredada de una versión anterior de este mismo instalador (valor que
+apunta a una carpeta `...\douglas...` que ya no existe tras la migración
+de la sección anterior) — evidencia de que la escribió este instalador,
+nunca algo que un usuario hubiera seteado a mano.
