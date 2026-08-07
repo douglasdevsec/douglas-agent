@@ -1253,10 +1253,6 @@ export function ChatSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <div className="shrink-0 px-0.5 pb-1.5">
-          <SidebarUpdateBanner />
-        </div>
-
         {showSessionSections && (
           <div className="shrink-0 px-2 pb-1 pt-1">
             <SearchField
@@ -1548,6 +1544,10 @@ export function ChatSidebar({
         )}
 
         {!showSessionSections && <SidebarBlankState onNewProject={openProjectCreate} />}
+
+        <div className="shrink-0 px-0.5 pb-1.5">
+          <SidebarUpdateBanner />
+        </div>
 
         <div className="shrink-0 px-0.5 pb-1 pt-0.5">
           <ProfileRail />
