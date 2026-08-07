@@ -538,18 +538,28 @@ const ThreadMessageListInner: FC<ThreadMessageListProps> = ({
           it: the image sits oversized (-inset-8) and blurred, clipped back to
           the pane by the parent's overflow-hidden so the blur never reveals a
           faded edge; the tint (the sidebar's own color, semi-transparent)
-          paints over it unblurred so the image still reads through. */}
+          paints over it unblurred so the image still reads through.
+
+          -z-10 on both: `absolute` elements paint above static/in-flow
+          content regardless of DOM order (CSS2.1 stacking order — positioned
+          descendants at stack level 0 paint after non-positioned in-flow
+          content), so without this the backdrop silently covered the
+          message list and the empty-state Intro (logo + "DOUGLAS AGENT"
+          wordmark), which have no position of their own. Negative z-index
+          drops these two into the stacking step BEFORE non-positioned
+          content, restoring "backdrop behind, content in front" — still
+          clipped correctly by this container's own overflow-hidden. */}
       {!secondaryWindow && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -inset-8 bg-cover bg-center bg-no-repeat blur-[10px]"
+          className="pointer-events-none absolute -inset-8 -z-10 bg-cover bg-center bg-no-repeat blur-[10px]"
           style={{ backgroundImage: 'var(--theme-chat-background-image)' }}
         />
       )}
       {!secondaryWindow && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-none absolute inset-0 -z-10"
           style={{ backgroundColor: 'var(--theme-chat-background-tint)' }}
         />
       )}
