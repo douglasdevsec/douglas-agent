@@ -1261,6 +1261,20 @@ Unused code that was never shipped was dead for a reason. Before wiring an
 unused module into a live code path, E2E test the real resolution chain
 with actual imports (not mocks) against a temp `HERMES_HOME`.
 
+### DO NOT persist a Windows environment variable under a name a separate product also reads
+`[Environment]::SetEnvironmentVariable(..., "User")` writes at the
+per-*user* level, not per-application — every process the user runs sees
+the same value, including a completely unrelated app. `install.ps1` used
+to persist the resolved home under `HERMES_HOME` (the *original* Hermes
+Agent's own variable name, not one Douglas invented); any separate,
+genuine install of upstream Hermes Agent on the same machine silently
+inherited Douglas's directory the next time it opened a terminal. Persist
+under a name only *your own* fork's code looks for (`DOUGLAS_HOME` here),
+never the upstream project's own env var name, even to store a value your
+own installer computed. See `douglas/README.md`, "Cadena canonica de
+resolucion Douglas/Hermes", and `douglas/PROGRESS.md` (2026-08-05/06 entry)
+for the full incident and fix.
+
 ### Tests must not write to `~/.hermes/`
 The `_isolate_hermes_home` autouse fixture in `tests/conftest.py` redirects `HERMES_HOME` to a temp dir. Never hardcode `~/.hermes/` paths in tests.
 
@@ -1449,12 +1463,19 @@ sigue funcionando — debe seguir siendo posible ejecutar
 `git merge upstream/main` indefinidamente. Módulos, rutas de import,
 directorios del núcleo y nombres de clases/funciones no se tocan ni se
 renombran. CLI, variables de entorno, directorio de datos y config ganan un
-alias `douglas`/`DOUGLAS_*`/`~/.douglas` que cae hacia atrás a
-`hermes`/`HERMES_*`/`~/.hermes` si ya existen. Solo lo visible en la UI
-(textos, identidad de la app, iconos, README) cambia por completo a
-Douglas.
+alias `douglas`/`DOUGLAS_*`/`~/.douglas`. **Importante — esto cambió**:
+el alias YA NO cae hacia atrás a un `hermes`/`~/.hermes` existente de
+forma automática (ver "Cadena canónica de resolución Douglas/Hermes" en
+`douglas/README.md` y `douglas/PROGRESS.md`, entrada del 2026-08-05/06) —
+un `~/.hermes` existente puede ser una instalación genuina y completamente
+ajena del Hermes Agent original, no necesariamente datos propios de antes
+del rebrand; adoptarlo en silencio mezcla datos ajenos o hace que dos
+instalaciones compartan `venv` y choquen entre sí. Sin `DOUGLAS_HOME`/
+`HERMES_HOME` explícitas, el default es siempre el directorio de douglas.
+Solo lo visible en la UI (textos, identidad de la app, iconos, README)
+cambia por completo a Douglas.
 
-**Las 8 reglas** (detalle completo en [`douglas/README.md`](./douglas/README.md)):
+**Las 9 reglas** (detalle completo en [`douglas/README.md`](./douglas/README.md)):
 
 1. Consulta `CAPABILITIES.md` antes de construir cualquier cosa.
 2. No renombres módulos, directorios ni rutas de import del núcleo.
@@ -1462,9 +1483,20 @@ Douglas.
    `douglas/CORE_PATCHES.md`.
 4. Commits atómicos, agrupados por intención.
 5. Compatibilidad hacia atrás obligatoria con instalaciones existentes de
-   Hermes (`~/.hermes`, `HERMES_*`, comando `hermes`).
+   Hermes (`~/.hermes`, `HERMES_*`, comando `hermes`) — pero nunca a costa
+   de adoptar en silencio una instalación de Hermes ajena y genuina; ver el
+   contrato de compatibilidad arriba.
 6. Los tests existentes deben seguir pasando.
 7. Licencia MIT intacta, atribución a Nous Research visible; nunca usar la
    marca "Hermes" ni el logo de Nous en superficies de producto.
 8. Ante una decisión con más de una opción razonable, presenta las
    opciones con sus trade-offs — no elijas unilateralmente.
+9. **Al arrancar una sesión nueva en este repo, lee primero
+   `douglas/PROGRESS.md` y `douglas/IMPLEMENTATION_PLAN.md` completos**
+   (no solo este archivo) antes de asumir el estado del proyecto — ahí
+   vive el "qué se hizo y por qué" y el "qué falta", incluyendo preguntas
+   abiertas para el usuario. Cada sesión de trabajo agrega una entrada a
+   `douglas/PROGRESS.md` (qué se hizo y por qué) y mantiene
+   `douglas/IMPLEMENTATION_PLAN.md` al día (qué queda pendiente) — ambos
+   archivos solo se agregan, nunca se reescriben ni se borran entradas
+   viejas.

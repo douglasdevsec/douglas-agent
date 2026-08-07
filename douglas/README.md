@@ -27,7 +27,7 @@ Por dentro, todo sigue siendo Hermes y sigue funcionando.
 **Regla mental:** si el usuario final lo ve, cámbialo. Si solo lo ve el
 intérprete de Python, no lo toques.
 
-## Las 8 reglas
+## Las 9 reglas
 
 1. **Consulta `CAPABILITIES.md`** (raíz del repo) antes de construir
    cualquier cosa. Si ya existe, úsalo o extiéndelo. Si crees que no sirve,
@@ -41,7 +41,11 @@ intérprete de Python, no lo toques.
 4. Commits atómicos, agrupados por intención, con mensajes que describan lo
    que el commit realmente hace.
 5. **Compatibilidad hacia atrás obligatoria**: quien tenga `~/.hermes`,
-   `HERMES_*` o use el comando `hermes` debe seguir funcionando igual.
+   `HERMES_*` o use el comando `hermes` debe seguir funcionando igual —
+   pero nunca a costa de adoptar en silencio una instalación de Hermes
+   ajena y genuina. Ver "Cadena canónica de resolución Douglas/Hermes" más
+   abajo: desde 2026-08-05/06 el alias `DOUGLAS_*`/`~/.douglas` ya NO cae
+   hacia atrás a un `~/.hermes` existente por defecto.
 6. Los tests existentes deben seguir pasando. Si un cambio rompe tests,
    el cambio está mal.
 7. **Licencia MIT**: `LICENSE` intacto, `NOTICE` con atribución a Nous
@@ -49,6 +53,11 @@ intérprete de Python, no lo toques.
    marca "Hermes" ni el logo de Nous en superficies de producto.
 8. Si una decisión admite más de una opción razonable, se presentan las
    opciones con sus trade-offs. No se elige unilateralmente.
+9. Cada sesión de trabajo agrega una entrada a
+   [`PROGRESS.md`](./PROGRESS.md) (qué se hizo y por qué) y mantiene
+   [`IMPLEMENTATION_PLAN.md`](./IMPLEMENTATION_PLAN.md) al día (qué queda
+   pendiente). Ambos archivos solo se agregan — nunca se reescribe ni se
+   borra una entrada vieja.
 
 ## Configuración del entorno de desarrollo
 
