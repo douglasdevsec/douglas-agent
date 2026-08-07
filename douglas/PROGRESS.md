@@ -711,3 +711,56 @@ separador de ruta de Windows, fuga de contextvar entre tests, y
 banner reposicionado.
 
 **Commit**: `18110d9b1`.
+
+---
+
+## 2026-08-07 — El fix de identidad funcionó (probado en sesión nueva), pero el agente no sabía explicar el panel Social real
+
+**Buena noticia primero**: el usuario probó en una sesión genuinamente
+nueva ("Presentación y botones de...") y "¿quién eres?" ya NO mencionó
+Hermes — el guard ampliado de la entrada anterior funcionó.
+
+**Problema nuevo, distinto**: al preguntar específicamente por "el botón
+lateral Social", el agente respondió que ese panel **no existe** en la
+UI base de Douglas, y especuló con adivinanzas — un plugin/extensión
+instalado, un tema que inyecta botones, u otra app que envuelve a
+Douglas (mencionó "Franz, Rambox, Wavebox" como ejemplos). El agente no
+tenía ningún conocimiento real del módulo Social construido en esta
+misma sesión (Fases A/B1/B2) — nada en su system prompt lo describe, así
+que ante la pregunta, adivinó en vez de decir la verdad.
+
+**Qué se hizo**: se agregó una descripción concisa y precisa del panel
+Social real al hint de plataforma `PLATFORM_HINTS["desktop"]`
+(`agent/prompt_builder.py`) — siempre inyectado en toda sesión de
+escritorio (no depende de que el modelo decida cargar una skill): qué es
+(panel en la barra lateral para conectar Facebook/Instagram/YouTube/
+LinkedIn/TikTok/X), qué tan real es cada red HOY (solo Facebook funciona
+de verdad), y los pasos exactos para conectar Facebook (App ID/Secret
+propios del usuario, Page ID, autorización en el navegador). Termina con
+una instrucción explícita: "no adivines con plugins, extensiones, temas,
+u otras apps" — apunta directo al patrón de falla observado.
+
+**Decisión de diseño**: se puso en el hint de plataforma (siempre
+inyectado) en vez de una skill cargada bajo demanda — a pesar de que
+`fixtures.ts` (comentarios de Etapa A) ya mencionaba una futura skill
+`social-connect`. Se prefirió el hint porque es 100% confiable (no
+depende de que el modelo decida que la pregunta amerita cargar una
+skill) — coincide con lo que el usuario pidió explícitamente
+("blindado", "la respuesta siempre sea correcta"). Trade-off consciente:
+infla un poco el system prompt de cada sesión de escritorio a cambio de
+esa garantía.
+
+**⚠️ Nota de mantenimiento — este texto se desactualiza si el módulo
+Social avanza sin actualizarlo también**: cuando se complete la Fase B3
+(adaptador de publicación real) o la Fase C (YouTube), o cuando el gate
+premium deje de estar desbloqueado para pruebas, este bloque en
+`PLATFORM_HINTS["desktop"]` debe actualizarse en el mismo cambio — si
+no, el agente empezará a darle a los usuarios información desactualizada
+sobre su propio producto, el mismo tipo de problema que motivó esta
+entrada.
+
+**Verificado**: `tools/threat_patterns.py::scan_for_threats` limpio (both
+scopes) contra el texto nuevo. `tests/agent/test_platform_hint_desktop.py`
++ `tests/agent/test_prompt_builder.py`: 70/70 pasan (1 skip preexistente).
+
+**Commit**: pendiente al momento de escribir esta entrada.

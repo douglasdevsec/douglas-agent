@@ -1352,3 +1352,32 @@ directa adicional: `is_legacy_template_soul(_NARROW_ANTI_EXTRACTION_SOUL_MD)
 == True`, `DEFAULT_SOUL_MD` actual NO reconocido como legacy (evita loop
 de auto-upgrade).
 - **Commit:** `18110d9b1`.
+
+## agent/prompt_builder.py — `PLATFORM_HINTS["desktop"]` gana descripción real del panel Social
+
+**Qué:** el agente no tenía ningún conocimiento del módulo Social
+construido en esta misma sesión — al preguntársele, adivinó (plugin,
+tema, otra app envolviendo Douglas). Se agregó un párrafo describiendo el
+panel real: qué es, qué red funciona hoy (solo Facebook), y los pasos
+exactos de conexión, terminando con una instrucción explícita contra
+adivinar.
+
+**Alternativa descartada:** una skill `social-connect` cargada bajo
+demanda (ya insinuada en comentarios de `fixtures.ts` de Etapa A).
+Descartada por ahora porque el hint de plataforma es 100% confiable
+(inyectado en toda sesión de escritorio) mientras que una skill depende
+de que el modelo decida cargarla — el usuario pidió explícitamente una
+respuesta "blindada"/siempre correcta, no "correcta si el modelo elige
+buscarla".
+
+**⚠️ Riesgo de mantenimiento marcado explícitamente**: este texto describe
+el estado ACTUAL del módulo Social (solo Facebook conectado de verdad,
+gate premium desbloqueado para pruebas) — debe actualizarse en el mismo
+commit que cualquier cambio futuro al módulo (Fase B3, Fase C, blindaje
+real del gate), o el agente empezará a informar mal a los usuarios sobre
+su propio producto. Ver nota de mantenimiento en `douglas/PROGRESS.md`.
+
+**Verificado:** `tools/threat_patterns.py::scan_for_threats` limpio.
+`tests/agent/test_platform_hint_desktop.py` + `test_prompt_builder.py`:
+70/70 pasan.
+- **Commit:** pendiente al momento de escribir esta entrada.
