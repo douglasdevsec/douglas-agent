@@ -135,6 +135,7 @@ import { SidebarBlankState, SidebarPinnedEmptyState, SidebarSessionSkeletons } f
 import { buildSessionByAnyId } from './session-index'
 import { SidebarSessionsSection, VIRTUALIZE_THRESHOLD } from './sessions-section'
 import { CONTEXT_SPLIT_KIT, SplitSubmenu } from './split-submenu'
+import { SidebarUpdateBanner } from './update-banner'
 
 // Non-session groups (messaging platforms) stay compact: show a few rows up
 // front, reveal more in larger steps on demand. Keeps a busy platform from
@@ -1251,6 +1252,10 @@ export function ChatSidebar({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        <div className="shrink-0 px-0.5 pb-1.5">
+          <SidebarUpdateBanner />
+        </div>
 
         {showSessionSections && (
           <div className="shrink-0 px-2 pb-1 pt-1">

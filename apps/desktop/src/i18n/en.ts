@@ -1871,6 +1871,10 @@ export const en: Translations = {
       artifacts: 'Artifacts',
       social: 'Social'
     },
+    updateBanner: {
+      restartToUpdate: 'Restart to update',
+      version: value => `v${value}`
+    },
     searchAria: 'Search sessions',
     searchPlaceholder: 'Search sessions…',
     clearSearch: 'Clear search',

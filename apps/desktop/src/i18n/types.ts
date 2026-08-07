@@ -1563,6 +1563,10 @@ export interface Translations {
 
   sidebar: {
     nav: Record<string, string>
+    updateBanner: {
+      restartToUpdate: string
+      version: (value: string) => string
+    }
     searchAria: string
     searchPlaceholder: string
     clearSearch: string

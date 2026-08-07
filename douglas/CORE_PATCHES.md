@@ -1222,4 +1222,43 @@ rutas HTTP reales vía `FastAPI TestClient`. Nada de esto abre un
 navegador real ni toca la red real — `webbrowser.open`/`httpx.get`/el
 hilo del servidor van mockeados en cada test. `tsc --noEmit` y `eslint`
 limpios en el frontend (sandbox sincronizado).
+- **Commit:** `9963f112a`.
+
+## apps/desktop/src/app/chat/sidebar/update-banner.tsx (nuevo), sidebar/index.tsx, shell/hooks/use-statusbar-items.tsx, i18n — banner de actualización + Gateway no-ocultable
+
+**Qué:** `update-banner.tsx` (**archivo nuevo**) — componente
+`SidebarUpdateBanner`, insertado en `chat/sidebar/index.tsx` justo debajo
+de `SIDEBAR_NAV`. Reutiliza `$updateStatus`/`$updateApply`/
+`startActiveUpdate()` de `store/updates.ts` (sin tocar ese archivo) — la
+misma fuente de verdad que ya usa `settings/about-settings.tsx` (tampoco
+tocado), así que ambas superficies de update quedan garantizadas
+consistentes por construcción. `use-statusbar-items.tsx` gana
+`lockedVisible: true` en el item `gateway-health` (mismo tratamiento que
+`command-center`).
+
+**Por qué:** pedido explícito del usuario tras revisar capturas de la app
+real corriendo — quería el botón de update promovido a un lugar de alta
+visibilidad (la mayoría de usuarios no abre Settings > About por su
+cuenta), y reportó que el indicador de Gateway había desaparecido de la
+barra de estado.
+
+**Alternativa descartada:** un mecanismo de update paralelo/propio para el
+banner — descartada de inmediato, hubiera arriesgado que About y el
+banner del sidebar mostraran estados distintos.
+
+**Riesgo de merge:** bajo. `update-banner.tsx` es un archivo nuevo.
+`sidebar/index.tsx` gana una línea de import + un bloque JSX aditivo
+(sin tocar el `.map()` de `SIDEBAR_NAV` existente).
+`use-statusbar-items.tsx` gana una sola propiedad en un objeto literal
+existente. i18n gana una clave nueva bajo `sidebar` (namespace ya
+existente) en `types.ts`/`en.ts`/`zh.ts` (este último, como ya lo exige
+el patrón documentado más arriba en este archivo, con placeholder en
+inglés).
+
+**Verificado:** `tsc --noEmit` limpio (dos corridas). `eslint` sin errores
+nuevos. `statusbar-visibility.test.tsx` 7/7 (con `--pool=threads` — el
+pool `forks` por defecto tuvo timeout de worker por carga del sistema en
+ese momento, no relacionado con el cambio). Consola del renderer sin
+excepciones nuevas al cargar. Ver `douglas/PROGRESS.md`, entrada del
+2026-08-07, para el detalle completo de ambos cambios.
 - **Commit:** pendiente al momento de escribir esta entrada.

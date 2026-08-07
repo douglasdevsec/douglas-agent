@@ -404,6 +404,11 @@ export function useStatusbarItems({
         ),
         id: 'gateway-health',
         label: copy.gateway,
+        // Whether the backend is even reachable is critical, ambient status —
+        // never hideable via the statusbar customize menu (same treatment as
+        // 'command-center' above), so a user who toggled it off (by accident
+        // or otherwise) can't end up with no way to tell if they're connected.
+        lockedVisible: true,
         menuClassName: 'w-72',
         menuContent: gatewayMenuContent,
         // Tip only when there's a real status reason — not "gateway status" restating the label.

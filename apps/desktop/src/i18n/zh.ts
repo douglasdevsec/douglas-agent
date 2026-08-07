@@ -2069,6 +2069,12 @@ export const zh: Translations = {
       messaging: '消息平台',
       artifacts: '产物'
     },
+    // TODO(i18n): placeholder English string, see the note above the `social`
+    // block further down in this file for why zh.ts needs every key.
+    updateBanner: {
+      restartToUpdate: 'Restart to update',
+      version: value => `v${value}`
+    },
     searchAria: '搜索会话',
     searchPlaceholder: '搜索会话…',
     clearSearch: '清除搜索',

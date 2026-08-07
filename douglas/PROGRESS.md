@@ -501,4 +501,57 @@ mockeados). `tsc --noEmit` y `eslint` limpios en el frontend.
 API usando el `FACEBOOK_PAGE_ACCESS_TOKEN` guardado aquí, y conectar
 `social_publish` como tool call real. Ver `IMPLEMENTATION_PLAN.md`.
 
+**Commit**: `9963f112a`.
+
+---
+
+## 2026-08-07 — Banner de actualización en el sidebar + Gateway siempre visible
+
+**Contexto**: antes de que el usuario actualizara manualmente para recibir
+todo el trabajo de hoy (Social Fase B1/B2), pidió dos cambios adicionales
+en la UI, verificados contra capturas reales de la app corriendo:
+
+**1. Banner "Reiniciar para actualizar" en el sidebar del home.** Hasta
+ahora la única forma de aplicar una actualización era abrir Settings >
+About (`about-settings.tsx`, sin tocar) o esperar el toast de notificación
+(`store/updates.ts::maybeNotifyUpdateAvailable`, también sin tocar) — la
+mayoría de usuarios no abre Settings por su cuenta. Nuevo componente
+`apps/desktop/src/app/chat/sidebar/update-banner.tsx`
+(`SidebarUpdateBanner`), insertado en `chat/sidebar/index.tsx` justo debajo
+de la lista de navegación (`SIDEBAR_NAV`). Reutiliza exactamente el mismo
+estado que ya usa About (`$updateStatus`/`$updateApply`/
+`startActiveUpdate()`) — nunca se inventó un mecanismo de update paralelo,
+así que las dos superficies nunca pueden desincronizarse. Solo se renderiza
+cuando `behind > 0 && supported && !applying` (misma condición exacta que
+el botón "Update now" de About). Logo: `logo_white.png` en modo oscuro,
+`logo_black.png` en modo claro, elegido por `renderedMode` (lo que
+realmente se pinta en pantalla, no la preferencia cruda del usuario) — ver
+`themes/context.tsx`. Número de versión: `$desktopVersion.appVersion` (la
+versión actual en ejecución — el sistema de updates de este repo es
+git-commit-based, "N commits behind", no semver clásico con una "versión
+nueva" propia que mostrar).
+
+**2. El indicador "Gateway" de la barra de estado ahora es imposible de
+ocultar por accidente.** El usuario reportó que ya no se mostraba. Investigado:
+el item `gateway-health` (`use-statusbar-items.tsx`) siempre estuvo en la
+lista de items — nunca tuvo `hidden` condicional — pero SÍ es
+toggleable por el usuario vía el menú de personalización de la barra de
+estado (`statusbar-controls.tsx`, checkbox que oculta cualquier item sin
+`lockedVisible: true`). Es decir, no fue un bug de código nuevo: la
+funcionalidad de ocultar items ya existía y este item nunca estuvo
+protegido contra ella, a diferencia de `command-center`. Se agregó
+`lockedVisible: true` a `gateway-health` — mismo tratamiento que
+`command-center` — para que el estado de conexión (si el agente está
+vivo o no) nunca pueda desaparecer de la barra, sea que se ocultó por
+accidente o a propósito.
+
+**Verificado**: `tsc --noEmit` limpio (dos corridas independientes, sin
+errores). `eslint` sin errores nuevos (los 6 warnings que aparecen en
+`use-statusbar-items.tsx` son preexistentes, en líneas lejos de este
+cambio — confirmado). `statusbar-visibility.test.tsx` 7/7 (corrido con
+`--pool=threads` porque el pool `forks` por defecto sufrió timeout de
+worker por la carga del sistema en ese momento — muchos procesos Node
+concurrentes de las verificaciones de esta sesión). Consola del renderer
+sin excepciones nuevas.
+
 **Commit**: pendiente al momento de escribir esta entrada.
