@@ -262,3 +262,20 @@ Ver `PROGRESS.md`, entrada del 2026-08-05/06.
 Este mismo trabajo. Ver `PROGRESS.md`, entrada del 2026-08-06.
 **Resuelto**: 2026-08-06. Sin commit todavía al momento de escribir esta
 línea — ver el commit inmediatamente posterior en `git log -- douglas/IMPLEMENTATION_PLAN.md`.
+
+### [x] El agente seguía autodescribiéndose como "la app Hermes" en el system prompt
+
+Reportado por el usuario con evidencia real (captura de chat): el agente
+respondía correctamente "Soy Douglas Agent" a "¿quién eres?", pero la
+frase siguiente preguntó por "la interfaz de la app Hermes". Causa real:
+`PLATFORM_HINTS["desktop"]` en `agent/prompt_builder.py` le decía
+literalmente al modelo, en cada sesión de escritorio, "You are chatting
+inside the Hermes desktop app" — más otros 6 strings inyectados en el
+system prompt con el mismo problema (tui/webui hints, steering,
+computer_use YOLO, backend remoto, guía de skills, perfil activo). Ver
+`PROGRESS.md` y `CORE_PATCHES.md`, entradas del 2026-08-07, para la
+investigación completa (incluye las dos hipótesis descartadas primero:
+inyección de `AGENTS.md` vía proyecto configurado, y cwd por defecto
+resolviendo al árbol de instalación — ninguna era la causa real).
+**Resuelto**: 2026-08-07. Sin commit todavía al momento de escribir esta
+línea.

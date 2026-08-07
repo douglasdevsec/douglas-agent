@@ -554,4 +554,82 @@ worker por la carga del sistema en ese momento — muchos procesos Node
 concurrentes de las verificaciones de esta sesión). Consola del renderer
 sin excepciones nuevas.
 
+**Commit**: `d09c76dc8`.
+
+---
+
+## 2026-08-07 — El agente seguía autodescribiéndose como "la app Hermes" en el system prompt (no la identidad, el entorno)
+
+**Problema real, reportado con evidencia**: el usuario le preguntó al agente
+"¿quién eres? ¿para qué son los botones de rrss?" en una sesión nueva del
+Douglas Agent real. Respondió correctamente "Soy Douglas Agent... por
+DouglasDevSec" (la identidad ya estaba bien, arreglada en una sesión
+anterior — ver entrada "Identidad del agente en chat" en
+`CORE_PATCHES.md`), pero la segunda frase preguntó "¿Los ves en la
+interfaz de la app **Hermes**...?" — una marca distinta apareciendo en la
+misma respuesta.
+
+**Investigación** (se descartaron hipótesis antes de tocar código):
+- ¿`AGENTS.md` (el contributor doc, lleno de "Hermes Agent" a propósito)
+  se estaba inyectando como contexto de proyecto? Se verificó
+  `projects.db` de la instalación real — vacío, sin proyecto configurado.
+  Descartado.
+- ¿El cwd por defecto de una sesión nueva resuelve al árbol de
+  instalación? Se revisó `resolveHermesCwd()` (`main.ts`) — ya evita
+  explícitamente eso en un build empaquetado, cae a `app.getPath('home')`.
+  Descartado.
+- **Causa real, encontrada por grep dirigido en `agent/system_prompt.py` y
+  `agent/prompt_builder.py`**: varios bloques de texto inyectados
+  literalmente en el system prompt de **cada sesión** seguían diciendo
+  "Hermes" — no comentarios de desarrollador, sino prosa que el modelo
+  recibe tal cual. El más directo: la pista de plataforma `"desktop"` en
+  `PLATFORM_HINTS` decía textualmente *"You are chatting inside the
+  **Hermes desktop app**..."* — es decir, se le decía al modelo, en cada
+  sesión de escritorio, que estaba dentro de "la app Hermes". Esto explica
+  la respuesta observada de forma directa, no como alucinación del modelo.
+
+**Qué se corrigió** (`agent/prompt_builder.py`, `agent/system_prompt.py`):
+- `PLATFORM_HINTS["desktop"]`: "Hermes desktop app" → "Douglas Agent
+  desktop app".
+- `PLATFORM_HINTS["tui"]`: "Hermes terminal UI (TUI)" → "Douglas terminal
+  UI (TUI)".
+- `PLATFORM_HINTS["webui"]`: "Hermes WebUI" → "Douglas WebUI".
+- Nota de steering mid-turn (`STEER_CHANNEL_NOTE`): "que Hermes appends" →
+  "que Douglas appends".
+- Nota de modo YOLO en la guía de `computer_use`: "when Hermes has none;
+  explicit Hermes YOLO" → "Douglas"/"Douglas YOLO".
+- Bloque de backend remoto (sandboxes): "NOT on the machine where Hermes
+  itself is running... of the Hermes process" → "Douglas" x2 (dos
+  variantes, con y sin probe de backend).
+- Guía de skills: "troubleshoot Hermes Agent itself" → "troubleshoot
+  Douglas Agent itself" — se dejó intacto el identificador real de la
+  skill (`hermes-agent`, entre backticks) porque renombrar el archivo/id
+  de la skill es un cambio de alcance distinto, no de texto.
+- `system_prompt.py`: "Active Hermes profile: default" / "Active Hermes
+  profile: {active_profile}" → "Active Douglas profile" — este es el
+  bloque de perfil activo, inyectado en **toda** sesión (no solo
+  desktop), así que también contribuía.
+
+**Deliberadamente NO tocado**: comentarios de desarrollador (`# ... Hermes
+install tree ...`), mensajes de `logger.warning(...)` (diagnóstico
+interno, nunca llega al usuario ni al modelo), y referencias a "Hermes"
+en tests que describen comportamiento histórico real (p. ej.
+`test_dashboard_tui_backcompat.py`: "Older Hermes desktop app shells (<=
+0.15.x)" — describe versiones que sí se llamaban Hermes) o sistemas
+externos ajenos (`test_tini_compat_shim.py`: el catálogo "Hermes WebUI"
+de Hostinger, un producto de terceros sin relación).
+
+**Verificado**: `tests/agent/test_system_prompt.py` (19/20 — la única
+falla es la ya documentada `test_coding_prompt_preserves_legacy_workspace_order`,
+separador `/` vs `\` de Windows, preexistente, no causada por este
+cambio), `tests/tools/test_cross_profile_guard.py` (10/10),
+`tests/agent/test_platform_hint_desktop.py` (15/15) — los tres archivos
+con aserciones sobre el texto exacto que cambié, actualizados en el mismo
+commit. `tests/agent/` completo con filtro `prompt or platform_hint`:
+191 pasan, 2 fallan — ambas las mismas dos fallas preexistentes ya
+documentadas en la entrada "Identidad del agente en chat" de
+`CORE_PATCHES.md` (fuga de estado entre tests vía contextvar, y el mismo
+separador de ruta de Windows), confirmadas de nuevo con `git stash` antes
+de esta sesión.
+
 **Commit**: pendiente al momento de escribir esta entrada.

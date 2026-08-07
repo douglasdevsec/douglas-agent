@@ -1261,4 +1261,57 @@ pool `forks` por defecto tuvo timeout de worker por carga del sistema en
 ese momento, no relacionado con el cambio). Consola del renderer sin
 excepciones nuevas al cargar. Ver `douglas/PROGRESS.md`, entrada del
 2026-08-07, para el detalle completo de ambos cambios.
+- **Commit:** `d09c76dc8`.
+
+## agent/prompt_builder.py, agent/system_prompt.py — texto inyectado en el system prompt seguía diciendo "Hermes" (no la identidad — el entorno)
+
+**Qué:** varios strings inyectados literalmente en el system prompt de
+**toda** sesión (no solo desktop) seguían sin rebrandear: `PLATFORM_HINTS["desktop"/"tui"/"webui"]`
+("You are chatting inside the Hermes desktop app...", "Hermes terminal
+UI (TUI)", "Hermes WebUI"), `STEER_CHANNEL_NOTE` ("that Hermes appends"),
+la guía de `computer_use` sobre modo YOLO ("when Hermes has none;
+explicit Hermes YOLO"), el bloque de backend remoto/sandbox ("NOT on the
+machine where Hermes itself is running... of the Hermes process", dos
+variantes), la guía de skills ("troubleshoot Hermes Agent itself" — se
+dejó intacto el id real de la skill `hermes-agent` entre backticks,
+renombrar el archivo/id de una skill es otro alcance), y en
+`system_prompt.py` el bloque de perfil activo ("Active Hermes profile:
+default"/"{active_profile}", inyectado en toda sesión). Todos pasaron a
+"Douglas"/"Douglas Agent" según el contexto.
+
+**Por qué:** encontrado investigando un reporte real del usuario — le
+preguntó al agente "¿quién eres?" (respondió correctamente "Douglas
+Agent", la identidad ya estaba arreglada) pero la siguiente frase
+preguntó por "la interfaz de la app Hermes". Se descartaron primero dos
+hipótesis más probables (inyección de `AGENTS.md` vía un proyecto
+configurado — verificado `projects.db` de la instalación real, vacío; y
+el cwd por defecto resolviendo al árbol de instalación — verificado
+`resolveHermesCwd()` en `main.ts`, ya lo evita en build empaquetado)
+antes de encontrar la causa real por grep dirigido en los dos archivos
+que arman el system prompt.
+
+**Alternativa descartada:** ninguna — es una corrección de texto directa,
+no había una decisión de diseño en juego. Se distinguió cuidadosamente
+qué SÍ tocar (prosa inyectada en el prompt que el modelo recibe) de qué
+NO tocar (comentarios de desarrollador, `logger.warning(...)` interno que
+nunca llega al modelo ni al usuario, y menciones a "Hermes" en tests que
+describen comportamiento histórico real o sistemas de terceros ajenos —
+ver `douglas/PROGRESS.md` para la lista exacta).
+
+**Riesgo de merge:** bajo-medio — son ediciones de texto dentro de
+strings largos que upstream también edita con frecuencia (son los mismos
+archivos que ya requieren revisión manual en cada merge, por la
+"Identidad del agente en chat" documentada más arriba); el riesgo es el
+mismo de siempre para estos dos archivos, no uno nuevo.
+
+**Verificado:** `tests/agent/test_system_prompt.py` (19/20, la única
+falla es la ya documentada por separador de ruta de Windows),
+`tests/tools/test_cross_profile_guard.py` (10/10),
+`tests/agent/test_platform_hint_desktop.py` (15/15) — actualicé en el
+mismo commit las 2 aserciones de test que dependían del string exacto
+("Active Hermes profile" en `test_system_prompt.py` y
+`test_cross_profile_guard.py`). `tests/agent/` filtrado
+(`-k "prompt or platform_hint"`): 191 pasan, 2 fallan — ambas ya
+documentadas como preexistentes en la entrada "Identidad del agente en
+chat" de este mismo archivo, no causadas por este cambio.
 - **Commit:** pendiente al momento de escribir esta entrada.
