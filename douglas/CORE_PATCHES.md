@@ -1314,4 +1314,41 @@ mismo commit las 2 aserciones de test que dependían del string exacto
 (`-k "prompt or platform_hint"`): 191 pasan, 2 fallan — ambas ya
 documentadas como preexistentes en la entrada "Identidad del agente en
 chat" de este mismo archivo, no causadas por este cambio.
-- **Commit:** pendiente al momento de escribir esta entrada.
+- **Commit:** `203700ce9`.
+
+## agent/prompt_builder.py, hermes_cli/default_soul.py, docker/SOUL.md — guard de identidad ampliado (Hermes seguía apareciendo como adivinanza)
+
+**Qué:** el fix anterior (entrada previa, `203700ce9`) quitó el string
+literal "Hermes desktop app" del prompt, pero el usuario probó de nuevo y
+el modelo ofreció "Hermes" como una de varias opciones dentro de una
+pregunta aclaratoria — no repitiendo texto viejo (la redacción cambió
+entre intentos), sino generando una respuesta fresca que igual llegaba
+ahí. El guard de identidad existente (`DEFAULT_AGENT_IDENTITY`/
+`DEFAULT_SOUL_MD`) solo cubría preguntas directas de auto-identidad.
+
+Se amplió en los 3 lugares (`agent/prompt_builder.py`, `hermes_cli/
+default_soul.py`, `docker/SOUL.md`) para instruir explícitamente: cuando
+el modelo no tiene contexto sobre un detalle de UI, nunca debe ofrecer
+"Hermes"/"Hermes Agent" como adivinanza, ni siquiera como una opción
+entre varias.
+
+**Verificado antes de aplicar:** corrido contra
+`tools/threat_patterns.py::scan_for_threats` (scopes `all` y `strict`) —
+sin coincidencias, evita repetir el incidente ya documentado arriba
+("Blindaje anti-extracción") donde una cláusula defensiva mal redactada
+sonó como el propio ataque que bloquea.
+
+**Mecanismo de upgrade:** `hermes_cli/default_soul.py` gana
+`_NARROW_ANTI_EXTRACTION_SOUL_MD` (el `DEFAULT_SOUL_MD` anterior,
+verbatim, congelado) en `_LEGACY_TEMPLATE_SOULS` — instalaciones reales
+con ese texto ya sembrado se auto-actualizan en el próximo arranque del
+backend, mismo mecanismo que el rebrand original.
+
+**Verificado:** `tests/agent/test_prompt_builder.py` (55/55),
+`tests/hermes_cli/test_config.py` (incluye
+`test_upgrades_legacy_template_soul_md`) — 128/129 (1 falla preexistente
+no relacionada, `TestGetHermesHome::test_default_path`). Verificación
+directa adicional: `is_legacy_template_soul(_NARROW_ANTI_EXTRACTION_SOUL_MD)
+== True`, `DEFAULT_SOUL_MD` actual NO reconocido como legacy (evita loop
+de auto-upgrade).
+- **Commit:** `18110d9b1`.

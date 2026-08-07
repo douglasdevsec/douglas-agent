@@ -277,5 +277,20 @@ computer_use YOLO, backend remoto, guía de skills, perfil activo). Ver
 investigación completa (incluye las dos hipótesis descartadas primero:
 inyección de `AGENTS.md` vía proyecto configurado, y cwd por defecto
 resolviendo al árbol de instalación — ninguna era la causa real).
-**Resuelto**: 2026-08-07. Sin commit todavía al momento de escribir esta
-línea.
+**Resuelto**: 2026-08-07. Commit `203700ce9`.
+
+**Seguimiento — el usuario probó de nuevo y "Hermes" seguía apareciendo**,
+esta vez como una adivinanza del modelo dentro de una pregunta
+aclaratoria, no como texto repetido (la redacción cambió entre
+intentos). Se verificó primero que el fix anterior sí llegó a disco en la
+instalación real (`git log` del checkout real confirmó `203700ce9`) y que
+el string ya no existe en el código (`'Hermes' in PLATFORM_HINTS['desktop']
+== False`, verificado en vivo) — el problema no era el fix anterior, era
+que el guard de identidad solo cubría preguntas directas, no
+especulación indirecta. Ampliado en `DEFAULT_AGENT_IDENTITY`/
+`DEFAULT_SOUL_MD`/`docker/SOUL.md` para prohibir explícitamente ofrecer
+"Hermes" como adivinanza. Ver `PROGRESS.md`/`CORE_PATCHES.md`, entradas
+del 2026-08-07 "El fix anterior no alcanzó", para el detalle completo
+(incluye la nota sobre caché de system prompt por sesión — recomendado
+probar en una sesión nueva, no una continuada).
+**Resuelto**: 2026-08-07. Commit `18110d9b1`.

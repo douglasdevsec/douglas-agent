@@ -632,4 +632,82 @@ documentadas en la entrada "Identidad del agente en chat" de
 separador de ruta de Windows), confirmadas de nuevo con `git stash` antes
 de esta sesión.
 
-**Commit**: pendiente al momento de escribir esta entrada.
+**Commit**: `203700ce9`.
+
+---
+
+## 2026-08-07 — El fix anterior no alcanzó: guard de identidad ampliado + reposición del botón de actualización
+
+**El usuario probó de nuevo tras actualizar y "Hermes" seguía apareciendo**
+— pero con una redacción distinta a la primera vez ("¿En la app Hermes,
+en una web, en algún documento?" vs. la original "¿Los ves en la
+interfaz de la app Hermes, en alguna página web, o en otro contexto?").
+Esa diferencia de redacción es la pista clave: no es el mismo texto
+repetido (no es un string cacheado verbatim) — es el modelo generando
+una respuesta fresca cada vez y, aun así, llegando a "Hermes" como
+adivinanza.
+
+**Verificación antes de asumir que el fix anterior falló**: se confirmó
+que el checkout real de la instalación del usuario
+(`%LOCALAPPDATA%\douglas\hermes-agent`) está exactamente en el commit
+`203700ce9` — el fix anterior sí llegó a disco. Se confirmó además que
+`agent.prompt_builder.PLATFORM_HINTS['desktop']` ya no contiene la
+palabra "Hermes" en absoluto (`'Hermes' in ... == False`, verificado en
+vivo). Es decir: el texto que se corrigió la vez pasada genuinamente
+ya no existe. El problema no era ese fix — era que **el guard de
+identidad existente solo cubría preguntas directas** ("¿quién eres?"),
+no esta clase de especulación indirecta (el modelo ofreciendo "Hermes"
+como una de varias opciones dentro de una pregunta aclaratoria, cuando
+no tiene contexto real de a qué se refiere el usuario).
+
+**Qué se hizo**: se amplió la cláusula anti-extracción en los 3 lugares
+donde vive (`DEFAULT_AGENT_IDENTITY` en `agent/prompt_builder.py`,
+`DEFAULT_SOUL_MD` en `hermes_cli/default_soul.py`, `docker/SOUL.md`) para
+cubrir explícitamente este caso: "cuando no sabes un detalle de la UI,
+una función, o dónde el usuario está viendo algo — referite a la interfaz
+SOLO como Douglas Agent. Nunca ofrezcas otro nombre de producto —
+incluyendo 'Hermes' o 'Hermes Agent' — como adivinanza ni como una opción
+entre varias, incluso dentro de una pregunta aclaratoria hecha porque te
+falta contexto para responder."
+
+**Verificado antes de aplicar** (lección ya aprendida en una sesión
+anterior — ver "Blindaje anti-extracción" en `CORE_PATCHES.md`): se
+corrió el propio escáner anti-inyección del repo
+(`tools/threat_patterns.py::scan_for_threats`) contra el texto nuevo, en
+ambos scopes (`all` y `strict`) — sin coincidencias, no se repite el
+incidente donde una cláusula defensiva sonó como el propio ataque que
+bloquea.
+
+**Mecanismo de actualización para instalaciones reales**: la instalación
+real del usuario ya tiene un `SOUL.md` sembrado en disco que coincide
+byte a byte con el `DEFAULT_SOUL_MD` *anterior* (el de alcance angosto).
+Se capturó ese texto exacto como `_NARROW_ANTI_EXTRACTION_SOUL_MD` y se
+agregó a `_LEGACY_TEMPLATE_SOULS` — el mismo mecanismo de auto-upgrade ya
+usado para el rebrand original (`_ensure_default_soul_md()`,
+`hermes_cli/config.py`) lo reemplazará por el texto ampliado
+automáticamente en el próximo arranque del backend, sin ningún paso
+manual del usuario.
+
+**Nota importante para la próxima prueba**: dado que el system prompt de
+una sesión se cachea (`agent._cached_system_prompt`, "for the lifetime of
+the AIAgent", con lógica de restauración al reanudar sesiones —
+`agent/system_prompt.py::reconstruct_static_prefix()`), es posible que
+una sesión de chat YA EXISTENTE (creada antes de este fix) conserve un
+system prompt viejo cacheado. **Recomendado probar en una sesión
+completamente nueva** ("New session"), no continuando una sesión
+anterior, para que el resultado refleje el fix real.
+
+**De paso**: el botón "Reiniciar para actualizar" (agregado en la entrada
+anterior) se reposicionó a pedido del usuario — de justo debajo de la
+navegación a justo arriba de `ProfileRail` (el pie de la barra lateral
+con home/+/Manage).
+
+**Verificado**: `tests/agent/test_prompt_builder.py` (55/55),
+`tests/agent/test_system_prompt.py`/`test_platform_hint_desktop.py`,
+`tests/tools/test_cross_profile_guard.py`, `tests/hermes_cli/test_config.py`
+— 161 pasan, 3 fallan (las mismas 3 fallas preexistentes ya documentadas:
+separador de ruta de Windows, fuga de contextvar entre tests, y
+`HERMES_HOME` fijado en esta máquina real). `tsc`/`eslint` limpios en el
+banner reposicionado.
+
+**Commit**: `18110d9b1`.
