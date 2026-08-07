@@ -22,6 +22,8 @@ import type {
   DebugShareResponse,
   ElevenLabsVoicesResponse,
   EnvVarInfo,
+  FacebookOAuthStartResponse,
+  FacebookOAuthStatusResponse,
   HermesConfig,
   HermesConfigRecord,
   LogsResponse,
@@ -159,6 +161,8 @@ export type {
   ElevenLabsVoice,
   ElevenLabsVoicesResponse,
   EnvVarInfo,
+  FacebookOAuthStartResponse,
+  FacebookOAuthStatusResponse,
   GatewayReadyPayload,
   HermesConfig,
   HermesConfigRecord,
@@ -1181,6 +1185,19 @@ export function updateSocialPlatform(
     path: `/api/social/platforms/${encodeURIComponent(platformId)}`,
     method: 'PUT',
     body
+  })
+}
+
+export function startFacebookOAuth(): Promise<FacebookOAuthStartResponse> {
+  return window.hermesDesktop.api<FacebookOAuthStartResponse>({
+    path: '/api/social/platforms/facebook/oauth/start',
+    method: 'POST'
+  })
+}
+
+export function getFacebookOAuthStatus(state: string): Promise<FacebookOAuthStatusResponse> {
+  return window.hermesDesktop.api<FacebookOAuthStatusResponse>({
+    path: `/api/social/platforms/facebook/oauth/status?state=${encodeURIComponent(state)}`
   })
 }
 

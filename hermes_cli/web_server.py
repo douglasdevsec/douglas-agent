@@ -9286,6 +9286,33 @@ from hermes_cli.social_platforms import (  # noqa: E402
     get_social_platform_status,
     update_social_platform_credentials,
 )
+from hermes_cli.social_oauth import (  # noqa: E402
+    get_facebook_oauth_status,
+    start_facebook_oauth,
+)
+
+
+# Facebook OAuth (Fase B2, see hermes_cli/social_oauth.py's module docstring
+# for the full loopback-server design). POST starts the attempt and returns
+# immediately -- it does NOT block for the ~seconds-to-minutes a user takes
+# to authorize in their browser, so it's a normal async route despite
+# kicking off blocking network calls; those run on a background daemon
+# thread started inside start_facebook_oauth(), not on this request's own
+# task. The frontend polls the GET status route until done.
+@app.post("/api/social/platforms/facebook/oauth/start")
+async def post_facebook_oauth_start():
+    try:
+        return start_facebook_oauth()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception:
+        _log.exception("POST /api/social/platforms/facebook/oauth/start failed")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@app.get("/api/social/platforms/facebook/oauth/status")
+async def get_facebook_oauth_status_route(state: str):
+    return get_facebook_oauth_status(state)
 
 
 @app.get("/api/social/platforms/{platform_id}")

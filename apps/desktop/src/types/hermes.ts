@@ -289,6 +289,20 @@ export interface SocialPlatformStatus {
   name: string
 }
 
+// Facebook OAuth (Fase B2, see hermes_cli/social_oauth.py) — a fixed local
+// loopback server, not an embedded webview. `start` returns immediately;
+// the frontend polls `status` until the browser round trip finishes.
+export interface FacebookOAuthStartResponse {
+  authorize_url: string
+  browser_opened: boolean
+  state: string
+}
+
+export interface FacebookOAuthStatusResponse {
+  error: null | string
+  status: 'error' | 'pending' | 'success'
+}
+
 // -- Webhooks (subscription CRUD) --------------------------------------------
 // Incoming HTTP event routes served by the webhook gateway platform. Backed by
 // the same JSON store the CLI/dashboard use; per-route HMAC secrets are

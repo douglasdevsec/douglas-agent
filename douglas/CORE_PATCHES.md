@@ -1171,4 +1171,55 @@ sincronizado), consola del renderer sin errores nuevos tras el cambio
 (verificación limitada — el servidor de desarrollo del renderer solo,
 sin el IPC bridge completo de Electron, no llega a la pantalla real del
 wizard; ver nota de alcance en `douglas/PROGRESS.md`).
+- **Commit:** `34d65da02`.
+
+## hermes_cli/social_oauth.py (nuevo), hermes_cli/web_server.py — Módulo Social, Fase B2: OAuth real de Facebook
+
+**Qué:** `hermes_cli/social_oauth.py` (**archivo nuevo**, sin equivalente
+upstream). Reutiliza el patrón ya probado de `hermes_cli/auth.py` para
+Spotify (`_spotify_wait_for_callback`, `_make_spotify_callback_handler`,
+`_can_open_graphical_browser`, `_is_remote_session` — estas dos últimas
+importadas directamente, no reimplementadas) en vez de inventar uno nuevo.
+`start_facebook_oauth()` valida credenciales, genera `state`, arranca un
+hilo en segundo plano (servidor loopback + intercambio de token), abre el
+navegador del sistema, y retorna de inmediato — no bloquea la petición
+HTTP que lo invoca. `get_facebook_oauth_status()` se consulta por polling.
+`web_server.py` gana `POST`/`GET /api/social/platforms/facebook/oauth/
+{start,status}`.
+
+**Diferencia deliberada vs. el precedente de Spotify:** Spotify usa un
+puerto efímero (`port=0`, asignado por el SO) porque su flujo PKCE no
+depende de un `redirect_uri` pre-registrado exacto. Facebook sí — el
+allowlist de "Valid OAuth Redirect URIs" de Meta exige coincidencia
+exacta de string, puerto incluido. Se usa un puerto fijo (`53682`) en vez
+de replicar el patrón de puerto efímero tal cual — habría producido un
+`redirect_uri` distinto en cada intento, imposible de pre-registrar en el
+dashboard de Meta. Documentado también en `apps/desktop/src/app/social/
+fixtures.ts` (copy del primer paso del wizard), no solo en código.
+
+**Por qué:** el usuario, consultado explícitamente entre dos estrategias
+(servidor loopback vs. pegado manual de URL como usa
+`plugins/platforms/google_chat/oauth.py`), eligió loopback por mejor
+experiencia de usuario. Ver `douglas/PROGRESS.md`, entrada "Fase B2" del
+2026-08-07, para el análisis completo presentado antes de la decisión.
+
+**Alternativa descartada:** replicar el pegado-manual-de-URL de
+`google_chat/oauth.py` — descartada por decisión explícita del usuario,
+no por el código (habría sido igual de válida técnicamente, es el patrón
+que ya funciona en este repo).
+
+**Riesgo de merge:** bajo. `social_oauth.py` es un archivo nuevo sin
+equivalente upstream. `web_server.py` gana dos rutas aditivas más, mismo
+perfil de riesgo que la entrada anterior.
+
+**Verificado:** `tests/hermes_cli/test_social_oauth.py`, 15 tests —
+validación de credenciales (las 3 requeridas, mensaje nombra cuáles
+faltan), generación de `state`, el App Secret nunca aparece en la URL de
+autorización devuelta al frontend (test dedicado), el intercambio de 3
+pasos con sus 3 rutas de error (código inválido, red caída, Page sin
+token de vuelta — cubre "el usuario no es admin de esa página"), y las
+rutas HTTP reales vía `FastAPI TestClient`. Nada de esto abre un
+navegador real ni toca la red real — `webbrowser.open`/`httpx.get`/el
+hilo del servidor van mockeados en cada test. `tsc --noEmit` y `eslint`
+limpios en el frontend (sandbox sincronizado).
 - **Commit:** pendiente al momento de escribir esta entrada.

@@ -32,11 +32,18 @@ SOCIAL_PLATFORM_REGISTRY: Dict[str, Dict[str, Any]] = {
     "facebook": {
         "name": "Facebook",
         # App ID/Secret: the user's own Meta developer app (Fase B1).
-        # Page ID: which Page to publish to (Fase B1). A Page Access Token
-        # lands here too once the real OAuth exchange (Fase B2) exists --
-        # not added yet so this registry doesn't advertise a field nothing
-        # can fill in for real today.
-        "env_vars": ("FACEBOOK_APP_ID", "FACEBOOK_APP_SECRET", "FACEBOOK_PAGE_ID"),
+        # Page ID: which Page to publish to (Fase B1). Page Access Token:
+        # written by the real OAuth exchange (Fase B2, see
+        # hermes_cli/social_oauth.py) via the same save_env_value() writer --
+        # listed here too so GET reports whether it's set, and so a user (or
+        # a future "disconnect" action) can clear it through the normal PUT
+        # path without a special case.
+        "env_vars": (
+            "FACEBOOK_APP_ID",
+            "FACEBOOK_APP_SECRET",
+            "FACEBOOK_PAGE_ID",
+            "FACEBOOK_PAGE_ACCESS_TOKEN",
+        ),
     },
 }
 

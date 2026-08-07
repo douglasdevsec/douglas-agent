@@ -1,9 +1,11 @@
 // Mocked data for the Etapa A social layer (see douglas/CORE_PATCHES.md) —
-// still true for every network except Facebook's credential-entry steps,
-// which now call a real backend (hermes_cli/social_platforms.py, see
-// connection-wizard.tsx's onValidateStep). The `MOCK_SOCIAL_CONNECTIONS`
-// status list below is still entirely mocked for all networks, Facebook
-// included — see douglas/IMPLEMENTATION_PLAN.md, "Modulo Social", Fase B4.
+// still true for every network except Facebook's 4 wizard steps below,
+// which now call a real backend end to end: credentials
+// (hermes_cli/social_platforms.py) and OAuth authorization
+// (hermes_cli/social_oauth.py), both via connection-wizard.tsx's
+// onValidateStep. The `MOCK_SOCIAL_CONNECTIONS` status list below is still
+// entirely mocked for all networks, Facebook included — see
+// douglas/IMPLEMENTATION_PLAN.md, "Modulo Social", Fase B4.
 
 export type SocialNetworkId = 'facebook' | 'instagram' | 'linkedin' | 'tiktok' | 'x' | 'youtube'
 
@@ -71,19 +73,21 @@ export interface WizardStepDefinition {
 }
 
 export const MOCK_WIZARD_STEPS: Record<SocialNetworkId, readonly WizardStepDefinition[]> = {
-  // Facebook's first two steps are real (see connection-wizard.tsx's
-  // onValidateStep + hermes.ts's updateSocialPlatform) — every user brings
-  // their OWN Meta developer app, never a Douglas-owned one shared across
-  // installs, so credentials are collected here rather than via a
-  // centralized OAuth "just authorize" flow. See douglas/PROGRESS.md
-  // (2026-08-07 entry) for the product decision and
-  // douglas/IMPLEMENTATION_PLAN.md ("Modulo Social") for what's still
-  // mocked (the final 'permissions' step — real OAuth is Fase B2).
+  // Every Facebook step is real (see connection-wizard.tsx's
+  // onValidateStep + hermes.ts's updateSocialPlatform/startFacebookOAuth/
+  // getFacebookOAuthStatus) — every user brings their OWN Meta developer
+  // app, never a Douglas-owned one shared across installs, so credentials
+  // are collected here rather than via a centralized OAuth "just
+  // authorize" flow. See douglas/PROGRESS.md (2026-08-07 entries, Fase B1
+  // + B2) for the product decision.
   facebook: [
     {
       id: 'app-id',
       title: 'App ID de Meta',
-      instruction: 'Pega el App ID de tu propia app de Meta for Developers.',
+      instruction:
+        'Pega el App ID de tu propia app de Meta for Developers. Antes de continuar, agrega ' +
+        'http://localhost:53682/facebook/callback a "Valid OAuth Redirect URIs" en la ' +
+        'configuración de Facebook Login for Business de esa app — solo hace falta una vez.',
       hasInput: true,
       inputLabel: 'App ID',
       inputPlaceholder: '1234567890123456'
@@ -99,12 +103,18 @@ export const MOCK_WIZARD_STEPS: Record<SocialNetworkId, readonly WizardStepDefin
     {
       id: 'page-id',
       title: 'Página vinculada',
-      instruction: 'Pega el ID de la página que quieres conectar.',
+      instruction: 'Pega el ID de la página que quieres conectar. Tu usuario de Facebook debe ser administrador de esa página.',
       hasInput: true,
       inputLabel: 'ID de página',
       inputPlaceholder: '1234567890'
     },
-    { id: 'permissions', title: 'Permisos', instruction: 'Autoriza a Douglas Agent a publicar en tu nombre.' }
+    {
+      id: 'permissions',
+      title: 'Permisos',
+      instruction:
+        'Se abrirá tu navegador para autorizar a Douglas Agent a publicar en tu nombre. ' +
+        'Vuelve a esta ventana cuando termines — puede tardar unos segundos en confirmarse.'
+    }
   ],
   instagram: [
     { id: 'business-account', title: 'Cuenta profesional', instruction: 'Confirma que tu Instagram es una cuenta de empresa o creador.' },

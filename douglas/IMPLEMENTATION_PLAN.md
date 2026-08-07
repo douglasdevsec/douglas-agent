@@ -141,26 +141,33 @@ todo mockeado.
 **Resuelto**: 2026-08-07. Ver `PROGRESS.md`, entrada del 2026-08-07, y
 `CORE_PATCHES.md` para el detalle de verificación completo.
 
-**Fase B2 — OAuth real de Facebook (pendiente).**
-Intercambio de código de autorización contra la Graph API de Meta, usando
-las credenciales que el propio usuario ingresó en B1. Guardar el resultado
-(Page Access Token) con el mismo `save_env_value`.
+**Fase B2 — OAuth real de Facebook.** ✅ Completa.
 
-**Pregunta abierta para el usuario**: estrategia de `redirect_uri`. Meta
-exige un redirect URI válido para el flujo OAuth estándar de "Facebook
-Login for Business". Dos caminos investigados (ver `PROGRESS.md` de hoy
-para el detalle de qué ya existe en el repo como precedente):
-- (a) **Servidor loopback temporal** — Electron levanta un `http://
-  127.0.0.1:<puerto>/callback` efímero solo durante el flujo de conexión,
-  captura el código, lo cierra. Meta permite `localhost` como redirect URI
-  en apps en modo desarrollo. Más limpio para una app de escritorio, pero
-  nuevo en este repo (ningún adaptador existente lo hace así).
-- (b) **Pegado manual de URL** — mismo truco que ya usa
-  `plugins/platforms/google_chat/oauth.py` (`redirect_uri` deliberadamente
-  roto, el usuario copia el parámetro `code` de la URL fallida y lo pega
-  de vuelta). Ya hay precedente funcionando en este repo, pero es una peor
-  experiencia de usuario para un flujo que debería sentirse nativo desde
-  el frontend.
+**Pregunta resuelta**: el usuario eligió (a) servidor loopback local, no
+(b) el pegado manual de URL. Diferencia real vs. el precedente de Spotify
+(`hermes_cli/auth.py`, que sí usa puerto efímero): el allowlist de
+redirect URIs de Meta exige coincidencia exacta incluyendo el puerto, así
+que se usa un puerto **fijo** (`53682`, `hermes_cli/social_oauth.py`) que
+el usuario registra una sola vez en su app de Meta — ver `PROGRESS.md`,
+entrada "Fase B2" del 2026-08-07, para el análisis completo.
+
+- [x] `hermes_cli/social_oauth.py` (nuevo) — `start_facebook_oauth()` (no
+  bloqueante, arranca el hilo del servidor loopback + abre el navegador
+  del sistema) y `get_facebook_oauth_status()` (consultado por polling).
+  Intercambio de 3 pasos: código → token corto → token largo → Page
+  Access Token — guardado con el mismo `save_env_value` de siempre
+  (`FACEBOOK_PAGE_ACCESS_TOKEN`).
+- [x] `POST`/`GET /api/social/platforms/facebook/oauth/{start,status}` en
+  `web_server.py`.
+- [x] Wizard: el paso final "Permisos" ya no está mockeado — abre el
+  navegador de verdad y hace polling hasta confirmar.
+- [x] 15 tests nuevos (`tests/hermes_cli/test_social_oauth.py`) — nunca
+  abren un navegador real ni tocan la red real.
+
+**Resuelto**: 2026-08-07. Ver `PROGRESS.md`, entrada "Fase B2", para el
+detalle completo (incluye el prerrequisito real de Meta App Review que el
+usuario debe conocer antes de probar con cuentas que no sean admin de su
+propia app de Meta).
 
 **Fase B3 — Adaptador de publicación real (pendiente).**
 `plugins/platforms/facebook/adapter.py`, siguiendo el patrón canónico ya

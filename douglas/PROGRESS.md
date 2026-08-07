@@ -425,4 +425,80 @@ realmente configurado), y el backend de entitlement real de Douglas
 Portal (el gate sigue siendo un flag hardcodeado, ahora en `true` en vez
 de `false`, no un check real).
 
+**Commit**: `34d65da02`.
+
+---
+
+## 2026-08-07 — Fase B2: OAuth real de Facebook (servidor loopback local)
+
+**Decisión del usuario**: servidor loopback local (no el truco de pegar
+URL manual que usa `plugins/platforms/google_chat/oauth.py`). Se investigó
+el precedente ya existente en el repo antes de escribir código —
+`hermes_cli/auth.py` ya tiene un flujo de OAuth loopback completo y
+probado para Spotify (`_spotify_wait_for_callback`,
+`_make_spotify_callback_handler`, `_can_open_graphical_browser`,
+`_is_remote_session`) — se siguió ese mismo patrón para Facebook en vez de
+inventar uno nuevo, con una diferencia clave documentada abajo.
+
+**Qué se hizo**: `hermes_cli/social_oauth.py` (archivo nuevo). Flujo:
+
+1. `start_facebook_oauth()` — valida que las credenciales de la Fase B1
+   estén guardadas, genera un `state` (CSRF), arranca un hilo en segundo
+   plano que levanta el servidor loopback y espera el callback, abre el
+   navegador del sistema con la URL de autorización de Meta
+   (`webbrowser.open()`, nunca un webview embebido — la sesión/2FA/passkey
+   real del usuario vive en su navegador, la app nunca debe ver la
+   contraseña), y **retorna inmediatamente** (no bloquea la petición HTTP).
+2. El hilo en segundo plano espera el callback (mismo patrón de polling
+   con deadline que el de Spotify), valida `state`, y si hay código,
+   ejecuta el intercambio de 3 pasos que exige la Graph API de Meta:
+   código → token de usuario de corta duración → token de usuario de larga
+   duración (`fb_exchange_token`) → Page Access Token (que, al derivarse de
+   un token de usuario de larga duración, no expira solo — solo si el
+   usuario revoca el acceso o cambia su contraseña). Se guarda con el mismo
+   `save_env_value` de siempre (`FACEBOOK_PAGE_ACCESS_TOKEN`).
+3. El frontend consulta `get_facebook_oauth_status(state)` — el wizard
+   (`index.tsx`) hace polling cada 1.5s hasta `success`/`error`/timeout.
+
+**Diferencia clave vs. el patrón de Spotify**: Spotify usa un puerto
+efímero asignado por el SO (`port=0`) porque su propio flujo PKCE no
+depende de un `redirect_uri` pre-registrado exacto. **Facebook sí** — el
+allowlist de "Valid OAuth Redirect URIs" de Meta exige coincidencia exacta
+de string, puerto incluido, sin comodines. Un puerto aleatorio en cada
+intento habría obligado a re-registrar la URL en el dashboard de Meta cada
+vez — inviable. Se usa un puerto **fijo** (`53682`) que el usuario agrega
+UNA sola vez a su app de Meta (`http://localhost:53682/facebook/callback`)
+— mismo tipo de configuración de una sola vez que ya pide el wizard de
+WhatsApp Cloud para su webhook. Documentado directamente en el primer paso
+del wizard (`fixtures.ts`), no solo en código.
+
+**Prerrequisito real que el usuario debe cumplir en Meta for Developers**
+(no controlable desde el código): los permisos `pages_manage_posts`/
+`pages_read_engagement`/`pages_show_list` solo funcionan sin fricción para
+los propios admins/testers de la app de Meta. Para que CUALQUIER usuario
+final autorice (no solo el dueño de la app), Meta exige pasar App Review
+— esto aplica a cada usuario que traiga su propia app, no es algo que
+Douglas pueda resolver una sola vez de forma centralizada, precisamente
+porque cada quien tiene su propia app.
+
+**Riesgo de seguridad considerado**: el intercambio usa `state` como
+protección CSRF (comparado exacto contra lo que generó
+`start_facebook_oauth()`); el App Secret nunca viaja en la URL de
+autorización (confirmado con test dedicado); el registro de intentos en
+memoria (`_ATTEMPTS`) nunca toca disco y se pierde al reiniciar la app —
+no hay nada persistente que limpiar.
+
+**Verificado**: `tests/hermes_cli/test_social_oauth.py`, 15 tests nuevos
+— validación de credenciales, generación de `state`, el intercambio de 3
+pasos con sus 3 rutas de error (código inválido, red caída, Page sin
+token — este último cubre el caso real de "el usuario no es admin de esa
+página"), y las rutas HTTP (`POST`/`GET` con credenciales faltantes,
+estado desconocido, arranque exitoso) — todo sin abrir un navegador real
+ni tocar la red real (`webbrowser.open`/`httpx.get`/el hilo del servidor
+mockeados). `tsc --noEmit` y `eslint` limpios en el frontend.
+
+**Pendiente (Fase B3)**: el adaptador que realmente publica en la Graph
+API usando el `FACEBOOK_PAGE_ACCESS_TOKEN` guardado aquí, y conectar
+`social_publish` como tool call real. Ver `IMPLEMENTATION_PLAN.md`.
+
 **Commit**: pendiente al momento de escribir esta entrada.

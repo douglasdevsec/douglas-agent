@@ -13,7 +13,7 @@ import {
   DialogTitle,
   preventCloseButtonAutoFocus
 } from '@/components/ui/dialog'
-import { updateSocialPlatform } from '@/hermes'
+import { getFacebookOAuthStatus, startFacebookOAuth, updateSocialPlatform } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { Eye } from '@/lib/icons'
 import { readableError } from '@/store/notifications'
@@ -106,22 +106,64 @@ function NetworkRow({
   )
 }
 
-// Etapa A frontend (douglas/CORE_PATCHES.md) + Fase B1's first real backend
+// Etapa A frontend (douglas/CORE_PATCHES.md) + Fase B1/B2's real backend
 // wiring, Facebook only (douglas/IMPLEMENTATION_PLAN.md, "Modulo Social").
-// Every other network, and Facebook's final "permissions" step, are still
-// entirely mocked.
+// Every other network is still entirely mocked.
 const FACEBOOK_STEP_ENV_KEY: Record<string, string> = {
   'app-id': 'FACEBOOK_APP_ID',
   'app-secret': 'FACEBOOK_APP_SECRET',
   'page-id': 'FACEBOOK_PAGE_ID'
 }
 
+// Backend timeout is 5 minutes (hermes_cli/social_oauth.py); poll a little
+// past that so a real timeout error from the backend wins over a
+// prematurely-given-up frontend.
+const FACEBOOK_OAUTH_POLL_INTERVAL_MS = 1500
+const FACEBOOK_OAUTH_MAX_POLLS = 210
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => window.setTimeout(resolve, ms))
+}
+
+async function authorizeFacebook(): Promise<StepValidationResult> {
+  let state: string
+
+  try {
+    state = (await startFacebookOAuth()).state
+  } catch (err) {
+    return { ok: false, error: readableError(err, 'No se pudo iniciar la autorización.').message }
+  }
+
+  for (let attempt = 0; attempt < FACEBOOK_OAUTH_MAX_POLLS; attempt++) {
+    await sleep(FACEBOOK_OAUTH_POLL_INTERVAL_MS)
+
+    let result
+
+    try {
+      result = await getFacebookOAuthStatus(state)
+    } catch (err) {
+      return { ok: false, error: readableError(err, 'No se pudo verificar la autorización.').message }
+    }
+
+    if (result.status === 'success') {
+      return { ok: true }
+    }
+
+    if (result.status === 'error') {
+      return { ok: false, error: result.error ?? 'La autorización con Facebook falló.' }
+    }
+  }
+
+  return { ok: false, error: 'Se agotó el tiempo de espera de la autorización.' }
+}
+
 async function validateFacebookStep(stepId: string, value: string): Promise<StepValidationResult> {
+  if (stepId === 'permissions') {
+    return authorizeFacebook()
+  }
+
   const envKey = FACEBOOK_STEP_ENV_KEY[stepId]
 
-  // The final 'permissions' step is real OAuth (Fase B2 — not built yet).
-  // Let it through unmodified so the wizard's mocked-success path still
-  // covers it, same as every still-fully-mocked network.
   if (!envKey) {
     return { ok: true }
   }
