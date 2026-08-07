@@ -763,4 +763,39 @@ entrada.
 scopes) contra el texto nuevo. `tests/agent/test_platform_hint_desktop.py`
 + `tests/agent/test_prompt_builder.py`: 70/70 pasan (1 skip preexistente).
 
+**Commit**: `26aaccf31`.
+
+---
+
+## 2026-08-07 — "Messaging platforms failed to load" al abrir Messaging poco después de iniciar la app
+
+**No es un tema de Social/OAuth** — el usuario estaba probando el panel
+de Messaging (Telegram) para comparar comportamiento, y encontró dos
+problemas separados:
+
+**1. Timeout real, causa identificada — clase de bug ya conocida (#48504).**
+El mensaje "Timed out connecting to Douglas Agent backend after 15000ms"
+viene de `getMessagingPlatforms()` (`apps/desktop/src/hermes.ts`), que no
+tenía el timeout generoso (`STARTUP_REQUEST_TIMEOUT_MS`, 60s) que ya se
+le dio a otras llamadas de arranque (`/api/model/info`, etc.) — usaba el
+default corto (`DEFAULT_FETCH_TIMEOUT_MS`, 15s, `hardening.ts`). El
+comentario ya existente junto a esas otras llamadas explica exactamente
+este patrón: la ráfaga de llamadas de arranque puede tardar más de 15s
+en un backend "vivo pero ocupado" (recién iniciado, todavía terminando
+su propio arranque), y eso se veía como un "failed to load" espurio. Se
+agregó `timeoutMs: STARTUP_REQUEST_TIMEOUT_MS` a `getMessagingPlatforms()`,
+mismo patrón exacto que las otras 7 llamadas que ya lo tienen.
+
+**2. "Failed to save Telegram" — no es un bug, es la validación
+funcionando correctamente.** El usuario puso `@DouglasDev27` (su
+@username de Telegram) en el campo "Allowed Telegram user IDs", pero ese
+campo exige **IDs numéricos** obtenidos de `@userinfobot` (el propio
+texto de la UI ya lo dice: "Comma-separated numeric IDs from
+@userinfobot"). Se le explicó cómo obtener el ID numérico real.
+
+**Verificado**: `tsc --noEmit`/`eslint` limpios (sandbox sincronizado).
+Sin tests dedicados a este timeout específico — cambio de una línea,
+mismo patrón ya cubierto implícitamente por el resto de llamadas con
+`STARTUP_REQUEST_TIMEOUT_MS`.
+
 **Commit**: pendiente al momento de escribir esta entrada.

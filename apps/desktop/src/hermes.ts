@@ -1156,7 +1156,13 @@ export function grantComputerUsePermissions(): Promise<ActionResponse> {
 
 export function getMessagingPlatforms(): Promise<MessagingPlatformsResponse> {
   return window.hermesDesktop.api<MessagingPlatformsResponse>({
-    path: '/api/messaging/platforms'
+    path: '/api/messaging/platforms',
+    // Same #48504 class as the other startup-burst reads above: this page is
+    // often opened right after launch, while the backend is alive but still
+    // busy finishing its own boot work, and the 15s default (hardening.ts)
+    // was surfacing a spurious "failed to load" toast on a call that was
+    // just slow, not actually stuck.
+    timeoutMs: STARTUP_REQUEST_TIMEOUT_MS
   })
 }
 
