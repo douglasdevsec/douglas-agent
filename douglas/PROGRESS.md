@@ -865,4 +865,89 @@ mensajería (en vez de depender del toast/botón) resolvería esta clase de
 problema de raíz, pero interrumpiría cualquier turno de agente en curso
 en ese momento — trade-off real, no se decidió unilateralmente.
 
+**Commit**: `5aad5da8c`.
+
+---
+
+## 2026-08-07 — CORRECCIÓN: dos afirmaciones mías eran falsas (barra de estado, icono de barra de tareas)
+
+El usuario señaló, con razón, que le he dicho que cosas funcionan sin
+haberlas verificado en la app real — sólo verifiqué que el código
+compila. Esta entrada corrige el registro.
+
+### ❌ FALSO: "el indicador Gateway ahora siempre se ve"
+
+Afirmado en la entrada del 2026-08-07 ("Banner de actualización en el
+sidebar + Gateway siempre visible") y repetido después. **Es incorrecto.**
+`apps/desktop/src/store/statusbar-prefs.ts:10`:
+
+```ts
+export const $statusbarVisible = persistentAtom(STATUSBAR_VISIBLE_STORAGE_KEY, false, Codecs.bool)
+```
+
+La barra de estado **completa está desactivada por defecto** (opt-in por
+diseño, comentado en ese mismo archivo: "Off by default — the bar is
+opt-in"). Mi cambio (`lockedVisible: true` en el ítem `gateway-health`)
+sólo impide ocultar ese ítem **dentro de una barra ya visible** — no hace
+nada si la barra entera está oculta, que es el estado por defecto de
+cualquier instalación nueva. Razoné sobre la capa equivocada.
+
+Cómo se muestra realmente: `Ctrl+Shift+S` (`view.toggleStatusbar`,
+`apps/desktop/src/lib/keybinds/actions.ts:116`). Para reiniciar el
+gateway sin la barra: `Ctrl+K` → "Restart gateway"
+(`command-palette/index.tsx:871`).
+
+### ❌ FALSO: "era caché de iconos de Windows" (icono de barra de tareas)
+
+Diagnóstico anterior (entrada del 2026-08-06, marcado como "Resuelto" en
+`IMPLEMENTATION_PLAN.md`): se concluyó que era caché de iconos del shell
+porque el `.exe` tenía el icono correcto embebido. **El icono nunca
+apareció**, tras múltiples reinicios y actualizaciones — así que ese
+diagnóstico era erróneo o incompleto.
+
+**Investigación real de esta ronda** (todo verificado contra la
+instalación en vivo, no contra el repo):
+- El `.exe` en ejecución (`release/win-unpacked/Douglas Agent.exe`, PID
+  real confirmado con `Get-Process`) SÍ tiene el icono verde correcto
+  embebido — extraído con `ExtractAssociatedIcon` e inspeccionado
+  visualmente. ✓
+- `resources/icon.ico` y `assets/icon.ico` existen ambos, así que
+  `getAppIconPath()` (`main.ts:810`) sí resuelve a un archivo real. ✓
+- El acceso directo del Start Menu apunta al exe correcto con
+  `IconLocation` correcto. ✓
+- **PERO**: la app llama `app.setAppUserModelId("com.douglasdevsec.douglas-agent")`
+  (confirmado en el bundle compilado `dist/electron-main.mjs`), y
+  **ningún acceso directo lleva ese AUMID grabado** (verificado leyendo
+  el `.lnk` vía `IPropertyStore`, `System.AppUserModel.ID` → vacío).
+
+Windows exige que exista un acceso directo del Start Menu con el
+`System.AppUserModel.ID` coincidente para resolver icono/agrupación de la
+barra de tareas cuando una app declara un AUMID propio. La causa es
+`scripts/install.ps1:3284`, que crea el acceso directo con
+`WScript.Shell.CreateShortcut` — esa API COM **no puede** escribir el
+AUMID (sólo campos básicos: TargetPath, IconLocation, Arguments...).
+Requiere `IPropertyStore`.
+
+**Intento de parche en caliente FALLIDO**: se intentó estampar el AUMID
+en el `.lnk` existente con C# inline (`IShellLinkW` + `IPropertyStore`).
+El archivo creció de 2708 a 2829 bytes, pero al releerlo el valor sigue
+vacío (`vt=0`) — el marshalling del `PROPVARIANT` en el helper inline es
+incorrecto. **No dar por resuelto**: la causa raíz está identificada y
+verificada, la corrección no.
+
+**Camino correcto pendiente** (no implementado en esta ronda): Electron
+expone `shell.writeShortcutLink(path, op, { appUserModelId })`, que sí
+graba la propiedad correctamente. Lo más robusto es que la app repare su
+propio acceso directo al arrancar en Windows (auto-heal), en vez de
+depender de que el instalador PowerShell lo haga — así también arregla
+las instalaciones ya existentes sin reinstalar.
+
+### Lección de proceso
+
+`tsc` limpio, `eslint` limpio y tests en verde **no son evidencia de que
+una función se vea o funcione en la app real**. Para cualquier cambio
+observable por el usuario: verificar contra la instalación real (proceso
+en ejecución, archivos en disco, logs del backend) o decir explícitamente
+que no se pudo verificar — nunca afirmar que funciona.
+
 **Commit**: pendiente al momento de escribir esta entrada.
