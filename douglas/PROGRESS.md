@@ -798,4 +798,71 @@ Sin tests dedicados a este timeout específico — cambio de una línea,
 mismo patrón ya cubierto implícitamente por el resto de llamadas con
 `STARTUP_REQUEST_TIMEOUT_MS`.
 
+**Commit**: `eae245843`.
+
+---
+
+## 2026-08-07 — Rebrand del catálogo de plataformas de mensajería + Telegram "Connected" pero no responde
+
+**Rebrand**: las 23 descripciones de plataformas de mensajería en
+`hermes_cli/web_server.py::_PLATFORM_OVERRIDES` decían "Hermes" (ej.
+"Run Hermes from Telegram DMs, groups, and topics.", visible tal cual en
+el panel Messaging del usuario) — corregidas todas a "Douglas Agent". No
+se tocaron las `docs_url` (siguen apuntando a
+`hermes-agent.nousresearch.com`, atribución correcta a Nous Research
+por licencia MIT) ni las 2 entradas de temas/skins "Hermes Teal" en otra
+parte del archivo (fuera de alcance — son nombres de esquema de color,
+no descripciones de mensajería; quedan anotadas para una pasada
+separada si el usuario la pide).
+
+**Telegram real, diagnosticado con logs reales, no especulación**: el
+usuario conectó Telegram, la UI mostró "Connected", envió 3 mensajes de
+prueba (confirmados entregados/leídos por Telegram — doble check) y el
+bot nunca respondió. Se revisó `gateway_state.json` (gateway corriendo,
+`platforms.telegram.state: "connected"`) y `logs/agent.log`/`errors.log`
+con timestamps reales:
+
+1. `19:14:53` — se guarda `TELEGRAM_BOT_TOKEN` (primer intento, el de
+   `@DouglasDev27` como allowed user fue rechazado por la validación,
+   documentado en la entrada anterior).
+2. `19:34:42` — el gateway (proceso separado, PID propio) arranca y se
+   conecta a Telegram. En ese instante loguea *"No env user allowlists
+   configured... will deny unknown senders"* — confirma que en el
+   momento de conectar, el proceso del gateway todavía no veía ningún
+   `TELEGRAM_ALLOWED_USERS`.
+3. `19:35:00` — "[Telegram] Connected to Telegram (polling mode)" — el
+   bot ya está vivo y sondeando, pero con política deny-por-defecto (sin
+   allowlist).
+4. `19:35:34` — *después* de que el gateway ya estaba conectado, se
+   guarda `TELEGRAM_ALLOWED_USERS` (el ID numérico correcto) vía el
+   panel Messaging.
+
+**Causa raíz confirmada en código**: `save_env_value()`
+(`hermes_cli/config.py`) sí actualiza `os.environ` — pero del **proceso
+que atiende la petición HTTP** (el dashboard/API), no del proceso del
+gateway (PID separado, `gateway_state.json` lo confirma). Los procesos
+de SO no comparten variables de entorno entre sí después de arrancar —
+el gateway ya había leído (y logueado) su política de allowlist al
+conectar, y esa lectura fue **una sola vez al inicio**
+(`gateway/run.py`, línea ~10436: `os.getenv(v)` dentro del bloque de
+arranque del gateway, no en el loop de manejo de mensajes). Guardar
+credenciales nuevas actualiza el archivo `.env` en disco, pero el
+gateway ya en marcha no lo vuelve a leer solo — necesita reiniciarse.
+
+**Cómo se soluciona**: el propio flujo de guardado ya lo anticipa —
+`apps/desktop/src/app/messaging/index.tsx::handleSave()` muestra un
+toast de éxito con un botón de acción "reiniciar" (`m.restartToReconnect`
++ `restartGatewayAction`), pero requiere que el usuario lo pulse
+explícitamente; si se pierde o se descarta el toast, queda en este
+estado silenciosamente roto. Indicado al usuario: click en el indicador
+"Gateway" de la barra de estado (ahora siempre visible, ver entrada del
+2026-08-07 "El fix anterior no alcanzó") → "Restart Gateway"
+(`gateway-menu-panel.tsx`, `runGatewayRestart()`).
+
+**Posible mejora de producto, no implementada, solo señalada**: auto-
+reiniciar el gateway automáticamente al guardar credenciales de
+mensajería (en vez de depender del toast/botón) resolvería esta clase de
+problema de raíz, pero interrumpiría cualquier turno de agente en curso
+en ese momento — trade-off real, no se decidió unilateralmente.
+
 **Commit**: pendiente al momento de escribir esta entrada.
